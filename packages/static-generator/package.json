@@ -1,0 +1,18 @@
+{
+  "name": "@holonet/static-generator",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Generates static websites from Holonet site data.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@holonet/core": "workspace:*",
+    "@holonet/templates": "workspace:*"
+  }
+}

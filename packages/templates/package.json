@@ -1,0 +1,17 @@
+{
+  "name": "@holonet/templates",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Holonet template manifests and block schemas.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^3.23.8"
+  }
+}

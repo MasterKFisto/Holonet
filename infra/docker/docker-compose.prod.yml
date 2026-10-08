@@ -1,0 +1,58 @@
+name: holonet-prod
+
+# Holonet production / pilot PostgreSQL stack.
+#
+# INTENDED USE
+# Runs PostgreSQL 16 for production or pilot use on a Docker host (ECS)
+# INSIDE the Alibaba Cloud VPC. Function Compute reaches this database
+# through the VPC/private network only (FC VPC attachment) — see
+# docs/infrastructure.md and docs/deployment.md.
+#
+# SECURITY — DO NOT EXPOSE POSTGRESQL PUBLICLY
+# - No `ports:` are published below; PostgreSQL listens on this host's
+#   Docker network only.
+# - To let Function Compute (same VPC) reach the database, publish TCP 5432
+#   on the host's PRIVATE interface only (see the commented example under
+#   `ports`). Never bind 5432 to a public interface.
+# - Lock the host firewall (ufw/firewalld) and the Alibaba Cloud security
+#   group to allow TCP 5432 only from the Function Compute VPC attachment
+#   CIDR (plus your admin subnet if needed). Assign no public IP to this
+#   host, or at minimum no public route to port 5432.
+# - Provide a strong POSTGRES_PASSWORD via the environment — never commit
+#   real values to Git (docs/PROJECT_RULES.md rules 10/11).
+#
+# USAGE
+#   POSTGRES_PASSWORD=... docker compose -f infra/docker/docker-compose.prod.yml up -d
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: holonet-db-prod
+    restart: unless-stopped
+    stop_grace_period: 1m
+    environment:
+      POSTGRES_USER: holonet
+      POSTGRES_PASSWORD: '${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set from the environment — never commit real values}'
+      POSTGRES_DB: holonet
+    # No published ports by default — do not expose publicly.
+    #
+    # FUNCTION COMPUTE CONNECTIVITY: to let the FC VPC attachment reach the
+    # database, uncomment the override below and replace <PRIVATE_VPC_IP>
+    # with this host's private VPC IP. Point DATABASE_URL at that address:
+    #   postgres://holonet:<password>@<PRIVATE_VPC_IP>:5432/holonet
+    #
+    # ports:
+    #   - '<PRIVATE_VPC_IP>:5432:5432'
+    volumes:
+      - holonet_db_data:/var/lib/postgresql/data
+      # Executed once on first initialization (baseline extensions).
+      - ./initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U holonet -d holonet']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  holonet_db_data:

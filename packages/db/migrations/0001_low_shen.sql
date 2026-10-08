@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS "templates_workspace_name_idx" ON "templates" USING btree ("workspace_id","name");

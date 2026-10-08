@@ -1,0 +1,11 @@
+{
+  "$comment": "PLACEHOLDER OSS policy for the public bucket (OSS_PUBLIC_BUCKET): public read only, no listing. Replace placeholders with real values from the environment and review against the latest OSS policy documentation before applying.",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": ["*"],
+      "Action": ["oss:GetObject"],
+      "Resource": ["acs:oss:*:<ALIBABA_CLOUD_ACCOUNT_ID>:<OSS_PUBLIC_BUCKET>/*"]
+    }
+  ]
+}

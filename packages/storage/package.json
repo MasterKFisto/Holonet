@@ -1,0 +1,14 @@
+{
+  "name": "@holonet/storage",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Holonet storage abstraction (local filesystem + Alibaba OSS).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  }
+}

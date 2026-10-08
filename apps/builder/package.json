@@ -1,0 +1,23 @@
+{
+  "name": "@holonet/builder",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Holonet static site build worker (Function Compute function).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@holonet/core": "workspace:*",
+    "@holonet/static-generator": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.1"
+  }
+}

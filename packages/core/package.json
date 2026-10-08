@@ -1,0 +1,14 @@
+{
+  "name": "@holonet/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Holonet shared constants, domain types, and utilities.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  }
+}

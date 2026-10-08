@@ -1,0 +1,30 @@
+{
+  "$comment": "PLACEHOLDER Function Compute configuration. Real values come from environment variables. Deployment tooling (Serverless Devs 's' CLI or the Alibaba Cloud console) is finalized in the deployment phase — see docs/deployment.md.",
+  "service": {
+    "name": "holonet",
+    "region": "<ALIBABA_CLOUD_REGION>",
+    "accountId": "<ALIBABA_CLOUD_ACCOUNT_ID>",
+    "role": "<FC_ROLE_ARN>",
+    "vpcConfig": {
+      "vpcId": "<VPC_ID>",
+      "vSwitchIds": ["<VSWITCH_IDS>"],
+      "securityGroupId": "<SECURITY_GROUP_ID>"
+    }
+  },
+  "functions": [
+    {
+      "name": "holonet-app",
+      "handler": "index.handler",
+      "runtime": "nodejs20",
+      "memorySize": 512,
+      "timeout": 30
+    },
+    {
+      "name": "holonet-builder",
+      "handler": "index.handler",
+      "runtime": "nodejs20",
+      "memorySize": 1024,
+      "timeout": 900
+    }
+  ]
+}

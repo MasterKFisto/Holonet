@@ -1,0 +1,17 @@
+{
+  "name": "@holonet/ai",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Holonet AI import provider interfaces.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@holonet/core": "workspace:*"
+  }
+}
