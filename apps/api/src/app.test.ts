@@ -34,10 +34,17 @@ describe('holonet-api health', () => {
   });
 
   it('returns structured 501 responses for skeleton routes', async () => {
-    const res = await app.request('/api/workspaces');
+    const res = await app.request('/api/sites/site-1');
     expect(res.status).toBe(501);
     const body = await errorBodyOf(res);
     expect(body.error.code).toBe('NOT_IMPLEMENTED');
+  });
+
+  it('guards workspace routes (401 without a session)', async () => {
+    const res = await app.request('/api/workspaces');
+    expect(res.status).toBe(401);
+    const body = await errorBodyOf(res);
+    expect(body.error.code).toBe('UNAUTHORIZED');
   });
 
   it('exposes every planned route (no 404s)', async () => {
@@ -104,28 +111,30 @@ describe('holonet-api middleware', () => {
   });
 });
 
-describe('holonet-api auth placeholders', () => {
-  it('requires authentication on /api/me', async () => {
+describe('holonet-api auth without a database', () => {
+  it('requires a session on /api/me', async () => {
     const res = await app.request('/api/me');
     expect(res.status).toBe(401);
     const body = await errorBodyOf(res);
     expect(body.error.code).toBe('UNAUTHORIZED');
   });
 
-  it('admits provided tokens cannot be validated yet', async () => {
-    const res = await app.request('/api/me', {
-      headers: { authorization: 'Bearer some-token' },
+  it('rejects state-changing requests without a CSRF token', async () => {
+    const res = await app.request('/api/auth/login', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email: 'a@b.c', password: 'password-123' }),
     });
-    expect(res.status).toBe(501);
+    expect(res.status).toBe(403);
     const body = await errorBodyOf(res);
-    expect(body.error.code).toBe('NOT_IMPLEMENTED');
+    expect(body.error.code).toBe('FORBIDDEN');
   });
 
-  it('guards admin routes (501 placeholder)', async () => {
+  it('guards admin routes', async () => {
     const res = await app.request('/api/admin/workspaces');
-    expect(res.status).toBe(501);
+    expect(res.status).toBe(401);
     const body = await errorBodyOf(res);
-    expect(body.error.code).toBe('NOT_IMPLEMENTED');
+    expect(body.error.code).toBe('UNAUTHORIZED');
   });
 });
 

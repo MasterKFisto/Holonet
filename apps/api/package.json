@@ -15,8 +15,10 @@
   },
   "dependencies": {
     "@holonet/core": "workspace:*",
+    "@holonet/db": "workspace:*",
     "@holonet/security": "workspace:*",
     "@hono/node-server": "^1.13.5",
+    "drizzle-orm": "^0.36.0",
     "hono": "^4.6.3"
   },
   "devDependencies": {

@@ -52,6 +52,8 @@ export const users = pgTable(
     mfaEnabled: boolean('mfa_enabled').notNull().default(false),
     mfaRecoveryCodes: text('mfa_recovery_codes').array(),
     lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
+    /** Bumped on logout / password reset to invalidate existing sessions. */
+    tokenVersion: integer('token_version').notNull().default(0),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
   },
@@ -733,6 +735,28 @@ export const designTokens = pgTable(
 );
 
 /* --------------------------- tenant isolation ------------------------ */
+
+/* ------------------------- password_reset_tokens --------------------- */
+
+export const passwordResetTokens = pgTable(
+  'password_reset_tokens',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** SHA-256 hex of the raw reset token — the raw token is never stored. */
+    tokenHash: text('token_hash').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    usedAt: timestamp('used_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('password_reset_tokens_user_idx').on(table.userId),
+    index('password_reset_tokens_hash_idx').on(table.tokenHash),
+    index('password_reset_tokens_expires_idx').on(table.expiresAt),
+  ],
+);
 
 /**
  * Tenant isolation helper (rule 18): returns the SQL condition that scopes a

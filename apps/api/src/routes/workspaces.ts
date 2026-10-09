@@ -1,22 +1,25 @@
 import { Hono } from 'hono';
 import { notImplemented } from '../lib/errors.js';
+import { requireUser, requireWorkspaceAccess } from '../middleware/auth.js';
 import type { AppEnv } from '../types.js';
 
 /**
- * Workspace routes — skeleton only (implemented in the workspaces phase).
- * Nested site listing/creation are scoped under /api/workspaces/:workspaceId
- * and will be guarded by requireWorkspaceAccess.
+ * Workspace routes — guarded; handlers are implemented in the workspaces
+ * phase. requireUser + requireWorkspaceAccess enforce tenant isolation
+ * (rule 18) already at the skeleton level.
  */
 export const workspaceRoutes = new Hono<AppEnv>()
-  .get('/api/workspaces', (c) => notImplemented(c, 'GET /api/workspaces'))
-  .post('/api/workspaces', (c) => notImplemented(c, 'POST /api/workspaces'))
-  .get('/api/workspaces/:workspaceId', (c) => notImplemented(c, 'GET /api/workspaces/:workspaceId'))
-  .patch('/api/workspaces/:workspaceId', (c) =>
+  .get('/api/workspaces', requireUser, (c) => notImplemented(c, 'GET /api/workspaces'))
+  .post('/api/workspaces', requireUser, (c) => notImplemented(c, 'POST /api/workspaces'))
+  .get('/api/workspaces/:workspaceId', requireUser, requireWorkspaceAccess(), (c) =>
+    notImplemented(c, 'GET /api/workspaces/:workspaceId'),
+  )
+  .patch('/api/workspaces/:workspaceId', requireUser, requireWorkspaceAccess(), (c) =>
     notImplemented(c, 'PATCH /api/workspaces/:workspaceId'),
   )
-  .get('/api/workspaces/:workspaceId/sites', (c) =>
+  .get('/api/workspaces/:workspaceId/sites', requireUser, requireWorkspaceAccess(), (c) =>
     notImplemented(c, 'GET /api/workspaces/:workspaceId/sites'),
   )
-  .post('/api/workspaces/:workspaceId/sites', (c) =>
+  .post('/api/workspaces/:workspaceId/sites', requireUser, requireWorkspaceAccess(), (c) =>
     notImplemented(c, 'POST /api/workspaces/:workspaceId/sites'),
   );

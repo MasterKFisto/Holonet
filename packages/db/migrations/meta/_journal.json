@@ -15,6 +15,13 @@
       "when": 1791467672492,
       "tag": "0001_low_shen",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791529161755,
+      "tag": "0002_classy_meggan",
+      "breakpoints": true
     }
   ]
 }

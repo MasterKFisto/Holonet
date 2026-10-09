@@ -1,7 +1,7 @@
-import { randomBytes, scrypt } from 'node:crypto';
 import { basename, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { and, eq } from 'drizzle-orm';
+import { hashPassword } from '@holonet/security';
 import {
   closeDatabase,
   createDatabase,
@@ -18,27 +18,6 @@ import {
   workspaces,
   type TemplateManifestJson,
 } from './schema.js';
-
-const SCRYPT_KEY_LENGTH = 64;
-
-/**
- * Hashes a password with scrypt (Node crypto — no extra dependencies).
- * Plaintext passwords are never stored (rule 7). Format:
- * `scrypt$<salt hex>$<hash hex>`.
- */
-export async function hashPassword(password: string): Promise<string> {
-  const salt = randomBytes(16);
-  const hash = await new Promise<Buffer>((resolvePromise, reject) => {
-    scrypt(password, salt, SCRYPT_KEY_LENGTH, (error, derivedKey) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolvePromise(derivedKey);
-      }
-    });
-  });
-  return `scrypt$${salt.toString('hex')}$${hash.toString('hex')}`;
-}
 
 export const SEED_ADMIN_EMAIL = 'admin@holonet.local';
 export const SEED_WORKSPACE_SLUG = 'holonet-pilot';

@@ -27,6 +27,8 @@ function clientIp(c: Parameters<MiddlewareHandler<AppEnv>>[0]): string {
   return forwarded || c.req.header('x-real-ip') || 'unknown';
 }
 
+export { clientIp };
+
 function prune(now: number, windowMs: number): void {
   for (const [ip, bucket] of buckets) {
     if (bucket.windowStart + windowMs < now) {

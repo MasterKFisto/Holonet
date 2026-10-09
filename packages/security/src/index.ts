@@ -3,6 +3,9 @@ import { z } from 'zod';
 
 export { z };
 
+export * from './password.js';
+export * from './session.js';
+
 export interface AuditLogEntry {
   timestamp: string;
   workspaceId: WorkspaceId;

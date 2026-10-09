@@ -210,18 +210,27 @@ curl http://localhost:3000/api/health
 curl -i http://localhost:3000/api/workspaces   # 501 NOT_IMPLEMENTED (skeleton phase)
 ```
 
-- **Skeleton status:** `/health` and `/api/health` are fully implemented; every other route from
-  the API plan exists with structured `501 NOT_IMPLEMENTED` responses until its phase lands.
+- **Skeleton status:** `/health` and `/api/health` are fully implemented, as are all
+  authentication routes (`register`, `login`, `logout`, `forgot-password`, `reset-password`,
+  `/api/me`). Every other route from the API plan exists with structured `501 NOT_IMPLEMENTED`
+  responses until its phase lands.
+- **Authentication:** scrypt password hashing (constant-time verify), jose HS256 session JWTs in
+  the HTTP-only `holonet_session` cookie (Secure in production, `SameSite=Lax`, revoked by
+  `users.token_version` on logout/reset), double-submit CSRF protection (`holonet_csrf` +
+  `X-CSRF-Token`), login rate limiting (5 failures / 15 min per IP+email), hashed single-use
+  password-reset tokens (1 h expiry), and `security_events` / `audit_logs` records for every
+  login/register/logout/reset event. Full design: docs/security.md.
+- **Authorization:** `requireUser`, `requireAdmin`, and `requireWorkspaceAccess` are real
+  middleware — workspace routes already enforce tenant isolation (rule 18).
 - **Error shape** (stable — clients rely on `code`, never on `message`):
   `{ "error": { "code": "NOT_FOUND", "message": "…" }, "requestId": "…" }`. Codes:
   `BAD_REQUEST`, `VALIDATION_ERROR`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`,
   `RATE_LIMITED`, `NOT_IMPLEMENTED`, `INVALID_CONFIG`, `INTERNAL_ERROR`.
 - **Middleware:** request IDs (`X-Request-Id`, client-supplied when safe), structured request
   logging, security headers, CORS for the Vite dashboard (`CORS_ORIGINS`, default
-  `http://localhost:5173`), and per-IP rate limiting on `/api/*`
-  (`RATE_LIMIT_WINDOW_SECONDS` / `RATE_LIMIT_MAX_REQUESTS`, default 300 req / 60 s). Auth
-  middleware (`requireUser`, `requireWorkspaceAccess`, `requireAdmin`) exist as placeholders
-  until the auth phase.
+  `http://localhost:5173`), per-IP rate limiting on `/api/*`
+  (`RATE_LIMIT_WINDOW_SECONDS` / `RATE_LIMIT_MAX_REQUESTS`, default 300 req / 60 s), and CSRF
+  protection for state-changing routes.
 - **Environment:** validated with Zod in `apps/api/src/config/env.ts` — invalid configuration
   fails loudly with `INVALID_CONFIG`.
 - **Function Compute:** the same app is exposed through `apps/api/src/function.ts` (HTTP-triggered
@@ -246,8 +255,9 @@ All configuration comes from environment variables — see `.env.example` (rules
 | `OSS_PRIVATE_BUCKET`                           | OSS bucket for non-public resources: backups, form submissions, AI import snapshots                 |
 | `OSS_ENDPOINT`                                 | OSS API endpoint for the chosen region                                                              |
 | `OSS_PUBLIC_BASE_URL`                          | Public URL of the public bucket (static hosting origin)                                             |
-| `AUTH_SECRET`                                  | Secret for signing session tokens — **must be replaced** in production                              |
+| `AUTH_SECRET`                                  | Session signing secret (min 32 chars — HS256 key size); dev placeholder, replace in production      |
 | `SESSION_COOKIE_NAME`                          | Session cookie name (`holonet_session`)                                                             |
+| `SESSION_MAX_AGE_SECONDS`                      | Session token lifetime in seconds (default 604800 = 7 days)                                         |
 | `COOKIE_SECURE`                                | Enforce Secure flag on cookies (`true` in production)                                               |
 | `ADMIN_INITIAL_PASSWORD`                       | Initial admin password for `pnpm db:seed` (stored as a scrypt hash, never plaintext)                |
 | `AI_PROVIDER`                                  | AI import provider (`manual` default; provider interfaces in packages/ai)                           |

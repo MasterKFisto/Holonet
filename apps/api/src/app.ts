@@ -1,9 +1,10 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { createDatabase, type HolonetDatabase } from '@holonet/db';
 import { corsOriginList, loadEnv, type Env } from './config/env.js';
 import { errorBody } from './lib/errors.js';
-import { requireAdmin } from './middleware/auth.js';
 import { errorHandler } from './middleware/error-handler.js';
+import { csrfProtection } from './middleware/csrf.js';
 import { requestLogger } from './middleware/logging.js';
 import { rateLimit } from './middleware/rate-limit.js';
 import { requestId } from './middleware/request-id.js';
@@ -16,19 +17,26 @@ import type { AppEnv } from './types.js';
  *
  * The same app serves local development (@hono/node-server in src/index.ts)
  * and Function Compute (HTTP-triggered handler in src/function.ts).
+ * `db` is injectable for tests; by default a pool is created from
+ * DATABASE_URL.
  */
-export function createApp(env: Env = loadEnv()): Hono<AppEnv> {
+export function createApp(env: Env = loadEnv(), db?: HolonetDatabase): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
+  const database = db ?? (env.DATABASE_URL ? createDatabase(env.DATABASE_URL) : undefined);
 
-  // Typed environment access for every handler/middleware.
+  // Typed environment and database access for every handler/middleware.
   app.use('*', async (c, next) => {
     c.set('env', env);
+    if (database) {
+      c.set('db', database);
+    }
     await next();
   });
 
   // Cross-cutting middleware (registration order = execution order).
   app.use('*', securityHeaders());
   app.use('*', cors({ origin: corsOriginList(env), credentials: true }));
+  app.use('*', csrfProtection());
   app.use('*', requestId());
   app.use('*', requestLogger());
   app.use(
@@ -54,5 +62,3 @@ export function createApp(env: Env = loadEnv()): Hono<AppEnv> {
 
   return app;
 }
-
-export { requireAdmin };

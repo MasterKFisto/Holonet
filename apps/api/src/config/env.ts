@@ -11,8 +11,14 @@ export const envSchema = z.object({
   PUBLIC_BASE_URL: z.string().url().default('https://holonet.section-zero.link'),
   /** Required once the database is wired into the API (db phase). */
   DATABASE_URL: z.string().min(1).optional(),
-  /** Session signing secret — placeholder default; must be replaced in production. */
-  AUTH_SECRET: z.string().min(1).default('change-me'),
+  /**
+   * Session signing secret — must be at least 32 characters (HS256 key
+   * size). The default is a DEVELOPMENT placeholder; replace in production.
+   */
+  AUTH_SECRET: z.string().min(32).default('holonet-dev-secret-change-me-0000000000'),
+  /** Session cookie name (rule: HTTP-only cookie). */
+  SESSION_COOKIE_NAME: z.string().min(1).default('holonet_session'),
+  SESSION_MAX_AGE_SECONDS: z.coerce.number().int().positive().default(604800),
   /** Comma-separated origins allowed by CORS (local Vite dashboard by default). */
   CORS_ORIGINS: z.string().default('http://localhost:5173'),
   RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().int().positive().default(60),

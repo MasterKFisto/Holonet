@@ -23,11 +23,85 @@ Holonet is security-first. This document records the standing security posture; 
 - Storage keys are workspace-prefixed (`<workspaceId>/…`) so a workspace can never read or list another workspace's objects.
 - OSS buckets are separate by sensitivity: public bucket for published sites, private bucket for imports, form data, and backups.
 
-## Authentication and sessions
+## Authentication design
 
-- Sessions are signed with `AUTH_SECRET` and use the `SESSION_COOKIE_NAME` cookie (`holonet_session`).
-- `COOKIE_SECURE=true` in production — cookies are HTTPS-only.
-- Authorization is per-workspace; roles (owner/editor) arrive with the auth phase.
+### Passwords
+
+- Passwords are hashed with **Node.js crypto scrypt** (no native modules — deploys cleanly to
+  Function Compute). Stored format embeds a random 16-byte salt:
+  `scrypt$<salt hex>$<hash hex>` (64-byte derived key).
+- Verification is **constant-time** (`timingSafeEqual`). Plaintext passwords are never stored or
+  logged; login runs the same hashing work for unknown emails so timing does not reveal account
+  existence.
+- Registration enforces Zod-validated passwords (12–128 characters).
+- Implementation: `packages/security/src/password.ts`.
+
+### Sessions (JWT in HTTP-only cookies)
+
+- Session tokens are **signed JWTs (HS256) via jose** (pure JavaScript). Claims: `sub` (user id),
+  `email`, `role`, `ver` (session version). Signed with `AUTH_SECRET` (minimum 32 characters —
+  the HS256 key size).
+- The token is stored in an **HTTP-only cookie** (`SESSION_COOKIE_NAME`, default
+  `holonet_session`): `HttpOnly`, `SameSite=Lax`, `Secure` in production, expiry
+  `SESSION_MAX_AGE_SECONDS` (default 7 days).
+- **Revocation:** every user carries `users.token_version`. Logout and password reset increment
+  it, so previously issued tokens fail the `ver` check and are rejected — no server-side session
+  store required.
+- The database is authoritative for role/status: `requireUser` re-loads the user on every request
+  (a disabled account or demoted role takes effect immediately).
+- Implementation: `packages/security/src/session.ts`, `apps/api/src/middleware/auth.ts`.
+
+### CSRF protection
+
+- **Double-submit cookie:** every response sets a readable `holonet_csrf` cookie (random 256-bit
+  token); state-changing requests (`POST`/`PUT`/`PATCH`/`DELETE`) must echo it in the
+  `X-CSRF-Token` header. Cross-origin attackers cannot read the cookie, so they cannot forge the
+  header. Combined with `SameSite=Lax` this blocks CSRF across all state-changing API routes.
+- Implementation: `apps/api/src/middleware/csrf.ts`.
+
+### Login protection
+
+- **Login rate limiting:** 5 failed attempts per IP+email within 15 minutes block further logins
+  with `429 RATE_LIMITED` (`Retry-After` header). In-memory per instance; a Redis-backed limiter
+  is a future upgrade path for multi-instance Function Compute.
+- **Security events:** every failed login records a `security_events` row
+  (`login_failed`, severity `warning`); blocks record `login_rate_limited`. Raw IPs are never
+  stored — only a SHA-256 hash.
+- **Audit logs:** `user_registered`, `user_logged_in`, `user_logged_out`,
+  `password_reset_requested`, and `password_reset_completed` are written to `audit_logs`.
+- Implementation: `apps/api/src/middleware/login-rate-limit.ts`, `apps/api/src/lib/security.ts`.
+
+### Password reset
+
+- `POST /api/auth/forgot-password` always returns the same success response — **whether or not
+  the email exists is never revealed**.
+- Reset tokens are random 256-bit values, valid for 1 hour, single-use. **Only the SHA-256 hash
+  is stored** (`password_reset_tokens.token_hash`); the raw token is returned only in
+  non-production environments as a dev affordance. PLACEHOLDER: an email transport arrives in a
+  later phase.
+- A successful reset updates the password hash, marks the token used, increments
+  `users.token_version` (invalidating all sessions), and audits the event.
+- Implementation: `apps/api/src/routes/auth.ts`.
+
+### Roles and authorization
+
+- `users.role` is `admin` | `member` (admin field prepared at registration).
+- `requireUser` → resolves the session; `requireAdmin` → requires `role = 'admin'`;
+  `requireWorkspaceAccess` → requires an active `workspace_members` row for the route's
+  `:workspaceId`. Non-members receive `404` (not `403`) so workspace existence is never leaked —
+  cross-workspace access is prevented by construction (rule 18).
+
+### MFA (data model prepared, not yet enforced)
+
+- `users.mfa_secret`, `users.mfa_enabled`, and `users.mfa_recovery_codes` exist in the schema.
+  The full MFA enrollment/challenge flow (TOTP) arrives in a later phase; no MFA fields are ever
+  returned by the API.
+
+### Error disclosure
+
+- All errors use the stable `{ error: { code, message, details? }, requestId? }` shape. Stack
+  traces are never returned; unexpected failures log server-side only and respond with
+  `INTERNAL_ERROR`.
 
 ## Abuse prevention and audit (packages/security)
 

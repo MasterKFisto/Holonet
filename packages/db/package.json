@@ -16,6 +16,7 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
+    "@holonet/security": "workspace:*",
     "drizzle-orm": "^0.36.0",
     "pg": "^8.13.0"
   },
