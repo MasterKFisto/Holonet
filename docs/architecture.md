@@ -17,18 +17,18 @@ TypeScript code runs in two environments:
 
 ## Components
 
-| Package                     | Responsibility                                                                                                                                              |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `apps/api`                  | Hono HTTP API. Two entrypoints: `src/index.ts` (local Node server via `@hono/node-server`) and `src/function.ts` (Function Compute HTTP-triggered handler). |
-| `apps/dashboard`            | React dashboard built with Vite. Calls the API; never talks to the database directly.                                                                       |
-| `apps/builder`              | Static site build worker. Deployed as its own Function Compute function; loads site data, generates static files, publishes to OSS.                         |
-| `packages/core`             | Shared constants (service name, public base URL) and domain identifier types (`WorkspaceId`, `SiteId`).                                                     |
-| `packages/db`               | Drizzle ORM schema, migrations, and a PostgreSQL client factory.                                                                                            |
-| `packages/storage`          | Storage abstraction with `local` (development/tests) and `oss` (production) backends.                                                                       |
-| `packages/templates`        | Template manifest and block schemas (Zod) — the contract templates and the generator agree on.                                                              |
-| `packages/static-generator` | Turns Holonet site data into static website files (HTML, CSS, JS, assets).                                                                                  |
-| `packages/ai`               | AI import provider interfaces (`AiImportProvider`) plus a provider registry.                                                                                |
-| `packages/security`         | Validation (Zod), rate limiting, audit logging, and security event utilities.                                                                               |
+| Package                     | Responsibility                                                                                                                                                                                                                                           |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/api`                  | Hono HTTP API with request-id/logging/security-headers/CORS/rate-limit middleware and typed Zod env config. Two entrypoints: `src/index.ts` (local Node server via `@hono/node-server`) and `src/function.ts` (Function Compute HTTP-triggered handler). |
+| `apps/dashboard`            | React dashboard built with Vite. Calls the API; never talks to the database directly.                                                                                                                                                                    |
+| `apps/builder`              | Static site build worker. Deployed as its own Function Compute function; loads site data, generates static files, publishes to OSS.                                                                                                                      |
+| `packages/core`             | Shared constants (service name, public base URL) and domain identifier types (`WorkspaceId`, `SiteId`).                                                                                                                                                  |
+| `packages/db`               | Drizzle ORM schema, migrations, and a PostgreSQL client factory.                                                                                                                                                                                         |
+| `packages/storage`          | Storage abstraction with `local` (development/tests) and `oss` (production) backends.                                                                                                                                                                    |
+| `packages/templates`        | Template manifest and block schemas (Zod) — the contract templates and the generator agree on.                                                                                                                                                           |
+| `packages/static-generator` | Turns Holonet site data into static website files (HTML, CSS, JS, assets).                                                                                                                                                                               |
+| `packages/ai`               | AI import provider interfaces (`AiImportProvider`) plus a provider registry.                                                                                                                                                                             |
+| `packages/security`         | Validation (Zod), rate limiting, audit logging, and security event utilities.                                                                                                                                                                            |
 
 ## Local development architecture
 

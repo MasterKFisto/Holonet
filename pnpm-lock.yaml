@@ -32,6 +32,9 @@ importers:
       '@holonet/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@holonet/security':
+        specifier: workspace:*
+        version: link:../../packages/security
       '@hono/node-server':
         specifier: ^1.13.5
         version: 1.19.17(hono@4.13.13)

@@ -39,7 +39,10 @@ pnpm build
 ```
 
 - `apps/api` → `apps/api/dist` (Hono app; entrypoint `dist/function.js` for FC, `dist/index.js`
-  for a Node server).
+  for a Node server). Local start currently runs the TypeScript source via tsx
+  (`pnpm --filter api start`) because workspace packages are consumed as source.
+  > **PLACEHOLDER — FC bundling.** A bundling step (esbuild) that inlines workspace packages into
+  > the deployable function artifacts will be introduced in the deployment phase.
 - `apps/builder` → `apps/builder/dist` (build worker entrypoint).
 - `apps/dashboard` → `apps/dashboard/dist` (static SPA build, uploaded to the OSS public bucket).
 

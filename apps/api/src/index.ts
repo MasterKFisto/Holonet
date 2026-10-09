@@ -1,8 +1,9 @@
 import { serve } from '@hono/node-server';
 import { createApp } from './app.js';
+import { loadEnv } from './config/env.js';
 
-const port = Number(process.env.PORT ?? 3000);
+const env = loadEnv();
 
-serve({ fetch: createApp().fetch, port }, (info) => {
-  console.log(`[holonet-api] listening on http://localhost:${info.port}`);
+serve({ fetch: createApp(env).fetch, port: env.PORT }, (info) => {
+  console.log(`[holonet-api] listening on http://localhost:${info.port} (${env.NODE_ENV})`);
 });

@@ -193,6 +193,40 @@ docker compose -f infra/docker/docker-compose.yml --profile adminer up -d
 > to bind the private VPC interface and lock down the host firewall and security group. See
 > docs/infrastructure.md.
 
+## API Development
+
+The API is a Hono app in `apps/api`, served locally with `@hono/node-server`:
+
+```bash
+pnpm --filter api dev        # API on http://localhost:3000
+pnpm --filter api typecheck
+```
+
+Quick checks:
+
+```bash
+curl http://localhost:3000/health
+curl http://localhost:3000/api/health
+curl -i http://localhost:3000/api/workspaces   # 501 NOT_IMPLEMENTED (skeleton phase)
+```
+
+- **Skeleton status:** `/health` and `/api/health` are fully implemented; every other route from
+  the API plan exists with structured `501 NOT_IMPLEMENTED` responses until its phase lands.
+- **Error shape** (stable — clients rely on `code`, never on `message`):
+  `{ "error": { "code": "NOT_FOUND", "message": "…" }, "requestId": "…" }`. Codes:
+  `BAD_REQUEST`, `VALIDATION_ERROR`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`,
+  `RATE_LIMITED`, `NOT_IMPLEMENTED`, `INVALID_CONFIG`, `INTERNAL_ERROR`.
+- **Middleware:** request IDs (`X-Request-Id`, client-supplied when safe), structured request
+  logging, security headers, CORS for the Vite dashboard (`CORS_ORIGINS`, default
+  `http://localhost:5173`), and per-IP rate limiting on `/api/*`
+  (`RATE_LIMIT_WINDOW_SECONDS` / `RATE_LIMIT_MAX_REQUESTS`, default 300 req / 60 s). Auth
+  middleware (`requireUser`, `requireWorkspaceAccess`, `requireAdmin`) exist as placeholders
+  until the auth phase.
+- **Environment:** validated with Zod in `apps/api/src/config/env.ts` — invalid configuration
+  fails loudly with `INVALID_CONFIG`.
+- **Function Compute:** the same app is exposed through `apps/api/src/function.ts` (HTTP-triggered
+  handler); local server and FC entrypoint share `createApp()`.
+
 ## 5. Environment variables
 
 All configuration comes from environment variables — see `.env.example` (rules 10/11). Real values are never committed.
@@ -201,6 +235,9 @@ All configuration comes from environment variables — see `.env.example` (rules
 | ---------------------------------------------- | --------------------------------------------------------------------------------------------------- |
 | `NODE_ENV`                                     | `development` locally, `production` on Alibaba Cloud                                                |
 | `PORT`                                         | Port for the local API server (default 3000)                                                        |
+| `CORS_ORIGINS`                                 | Comma-separated origins allowed by CORS (local Vite dashboard by default)                           |
+| `RATE_LIMIT_WINDOW_SECONDS`                    | Rate limit window for `/api/*` (default 60)                                                         |
+| `RATE_LIMIT_MAX_REQUESTS`                      | Max requests per IP per window for `/api/*` (default 300)                                           |
 | `PUBLIC_BASE_URL`                              | Fixed public base URL: `https://holonet.section-zero.link`                                          |
 | `DATABASE_URL`                                 | PostgreSQL connection string (local dev default; production uses the private VPC address)           |
 | `ALIBABA_CLOUD_REGION`                         | Alibaba Cloud region for Function Compute and OSS                                                   |
