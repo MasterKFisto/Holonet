@@ -23,6 +23,10 @@ export const envSchema = z.object({
   CORS_ORIGINS: z.string().default('http://localhost:5173'),
   RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().int().positive().default(60),
   RATE_LIMIT_MAX_REQUESTS: z.coerce.number().int().positive().default(300),
+  /** Public base URL of the OSS public bucket (dashboard asset origin). */
+  OSS_PUBLIC_BASE_URL: z.string().url().optional(),
+  /** Path to the uploaded dashboard asset manifest (GET / shell). */
+  DASHBOARD_ASSET_MANIFEST_PATH: z.string().min(1).optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

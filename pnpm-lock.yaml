@@ -11,6 +11,9 @@ importers:
       '@types/node':
         specifier: ^20.16.11
         version: 20.19.43
+      ali-oss:
+        specifier: ^6.20.0
+        version: 6.23.0
       eslint:
         specifier: ^9.13.0
         version: 9.39.5(jiti@1.21.7)

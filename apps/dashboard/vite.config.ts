@@ -3,6 +3,10 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
+  // Relative asset paths: the production build is uploaded to OSS under
+  // app/ (infra/scripts/upload-dashboard-assets.mjs) and served from
+  // OSS_PUBLIC_BASE_URL, so index.html must reference assets relatively.
+  base: './',
   server: {
     port: 5173,
     proxy: {

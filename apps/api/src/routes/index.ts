@@ -4,6 +4,7 @@ import { adminRoutes } from './admin.js';
 import { assetRoutes } from './assets.js';
 import { authRoutes } from './auth.js';
 import { blockRoutes } from './blocks.js';
+import { dashboardShellRoutes } from './dashboard.js';
 import { formRoutes } from './forms.js';
 import { healthRoutes } from './health.js';
 import { pageRoutes } from './pages.js';
@@ -12,6 +13,7 @@ import { workspaceRoutes } from './workspaces.js';
 
 /** Mounts every route group onto the app. */
 export function mountRoutes(app: Hono<AppEnv>): Hono<AppEnv> {
+  app.route('/', dashboardShellRoutes);
   app.route('/', healthRoutes);
   app.route('/', authRoutes);
   app.route('/', workspaceRoutes);

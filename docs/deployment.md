@@ -46,6 +46,42 @@ pnpm build
 - `apps/builder` → `apps/builder/dist` (build worker entrypoint).
 - `apps/dashboard` → `apps/dashboard/dist` (static SPA build, uploaded to the OSS public bucket).
 
+## Dashboard asset publishing
+
+The production dashboard is served as static assets from the OSS public bucket
+under `app/`; the Function Compute `holonet-app` function returns a minimal HTML shell
+(`GET /`) that loads the dashboard entry CSS and JS from OSS.
+
+```bash
+pnpm build
+node infra/scripts/upload-dashboard-assets.mjs   # or: pnpm dashboard:upload
+```
+
+The upload script:
+
+1. Builds `apps/dashboard` when `dist/` is missing (force a rebuild with `--build`).
+2. Uploads every `dist/` file to `app/…` in `OSS_PUBLIC_BUCKET` with correct content types
+   (HTML, JS, CSS, JPG, PNG, SVG, fonts, …).
+3. Sets cache-control per file: HTML → `no-cache`; hashed JS/CSS/images/fonts →
+   `public, max-age=31536000, immutable`.
+4. Writes the uploaded asset manifest to `infra/alibaba/dashboard-assets.json`
+   (entry CSS/JS, per-file keys, content types, cache-control, sizes, SHA-256).
+
+Required environment (deployment RAM user; never committed):
+
+- `OSS_REGION` (or `ALIBABA_CLOUD_REGION`), `OSS_PUBLIC_BUCKET`, `OSS_PUBLIC_BASE_URL`
+- `OSS_ACCESS_KEY_ID` / `OSS_ACCESS_KEY_SECRET` (or RAM-role credentials in CI)
+
+At runtime the API reads the manifest via `DASHBOARD_ASSET_MANIFEST_PATH` (default:
+`infra/alibaba/dashboard-assets.json`) and renders the shell with:
+
+- `PUBLIC_BASE_URL` (`https://holonet.section-zero.link`) as `<base href>`.
+- `OSS_PUBLIC_BASE_URL` + `/app/…` for every entry CSS/JS URL.
+
+> **PLACEHOLDER — FC manifest packaging.** On Function Compute the manifest should be baked into
+> the function artifact (or fetched from OSS at cold start) since the function image has no
+> repository checkout; the default local path is for development.
+
 ## Production layout
 
 | Component                                          | Target                                                                              |
