@@ -1,14 +1,33 @@
 import type { MiddlewareHandler } from 'hono';
 import { getCookie } from 'hono/cookie';
 import { and, eq } from 'drizzle-orm';
-import { users, workspaceMembers } from '@holonet/db';
+import { users, workspaceMembers, type HolonetDatabase } from '@holonet/db';
 import { verifySessionToken } from '@holonet/security';
 import { requireDb } from '../lib/db.js';
 import { errorBody } from '../lib/errors.js';
 import type { AppEnv, AuthenticatedUser } from '../types.js';
 
-function unauthorized(c: Parameters<MiddlewareHandler<AppEnv>>[0], message: string): Response {
+export function unauthorized(
+  c: Parameters<MiddlewareHandler<AppEnv>>[0],
+  message: string,
+): Response {
   return c.json(errorBody({ code: 'UNAUTHORIZED', message }, c.get('requestId')), 401);
+}
+
+/** Returns true when the user is an active member of the workspace. */
+export async function verifyWorkspaceMembership(
+  db: HolonetDatabase,
+  userId: string,
+  workspaceId: string,
+): Promise<boolean> {
+  const member = await db.query.workspaceMembers.findFirst({
+    where: and(
+      eq(workspaceMembers.workspaceId, workspaceId),
+      eq(workspaceMembers.userId, userId),
+      eq(workspaceMembers.status, 'active'),
+    ),
+  });
+  return member !== undefined;
 }
 
 /**
@@ -79,13 +98,7 @@ export function requireWorkspaceAccess(paramName = 'workspaceId'): MiddlewareHan
       );
     }
     const db = requireDb(c);
-    const member = await db.query.workspaceMembers.findFirst({
-      where: and(
-        eq(workspaceMembers.workspaceId, workspaceId),
-        eq(workspaceMembers.userId, user.id),
-        eq(workspaceMembers.status, 'active'),
-      ),
-    });
+    const member = await verifyWorkspaceMembership(db, user.id, workspaceId);
     if (!member) {
       return c.json(
         errorBody({ code: 'NOT_FOUND', message: 'workspace not found' }, c.get('requestId')),

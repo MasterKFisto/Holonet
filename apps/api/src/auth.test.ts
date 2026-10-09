@@ -272,12 +272,14 @@ describe.skipIf(!hasDb)('holonet-api authentication (integration)', () => {
     });
     expect(denied.status).toBe(404);
 
-    // Join as owner: guard passes, skeleton handler returns 501.
+    // Join as owner: guard passes, handler returns the workspace.
     await db.insert(workspaceMembers).values({ workspaceId: workspace!.id, userId, role: 'owner' });
     const allowed = await app.request(`/api/workspaces/${workspace!.id}`, {
       headers: { cookie: `holonet_session=${activeSession}` },
     });
-    expect(allowed.status).toBe(501);
+    expect(allowed.status).toBe(200);
+    const body = (await allowed.json()) as { workspace: { id: string } };
+    expect(body.workspace.id).toBe(workspace!.id);
 
     // No session: 401.
     const anonymous = await app.request(`/api/workspaces/${workspace!.id}`);

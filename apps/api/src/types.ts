@@ -22,6 +22,12 @@ export type AppEnv = {
     user?: AuthenticatedUser;
     /** Set by requireWorkspaceAccess (placeholder until the auth phase). */
     workspaceId?: string;
+    /** Set by requireSiteAccess. */
+    siteId?: string;
+    /** Set by requirePageAccess. */
+    pageId?: string;
+    /** Set by requireBlockAccess. */
+    blockId?: string;
     /** Request-scoped database (set when DATABASE_URL is configured). */
     db?: HolonetDatabase;
   };

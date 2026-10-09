@@ -15,3 +15,5 @@ export function publicBaseUrl(): string {
 /** Identifier types keep tenant boundaries explicit in signatures. */
 export type WorkspaceId = string;
 export type SiteId = string;
+
+export * from './blocks.js';

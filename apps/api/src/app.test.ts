@@ -34,7 +34,7 @@ describe('holonet-api health', () => {
   });
 
   it('returns structured 501 responses for skeleton routes', async () => {
-    const res = await app.request('/api/sites/site-1');
+    const res = await app.request('/api/sites/site-1/forms');
     expect(res.status).toBe(501);
     const body = await errorBodyOf(res);
     expect(body.error.code).toBe('NOT_IMPLEMENTED');

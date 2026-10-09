@@ -236,6 +236,48 @@ curl -i http://localhost:3000/api/workspaces   # 501 NOT_IMPLEMENTED (skeleton p
 - **Function Compute:** the same app is exposed through `apps/api/src/function.ts` (HTTP-triggered
   handler); local server and FC entrypoint share `createApp()`.
 
+### API examples (curl)
+
+State-changing requests need a CSRF token (double-submit cookie) and a session cookie; the
+examples use a cookie jar to handle both. Replace values marked `<...>`.
+
+```bash
+JAR=$(mktemp); CSRF=$(curl -s -c "$JAR" http://localhost:3000/health -o /dev/null \
+  && awk '$6 == "holonet_csrf" {print $7}' "$JAR")
+
+# Register (auto-logs in; session + CSRF cookies stored in $JAR)
+curl -s -b "$JAR" -c "$JAR" -H "X-CSRF-Token: $CSRF" -H 'content-type: application/json' \
+  -d '{"email":"admin@holonet.local","password":"<password>"}' \
+  http://localhost:3000/api/auth/register
+
+# Log in (seeded admin: admin@holonet.local / ADMIN_INITIAL_PASSWORD)
+curl -s -b "$JAR" -c "$JAR" -H "X-CSRF-Token: $CSRF" -H 'content-type: application/json' \
+  -d '{"email":"admin@holonet.local","password":"<ADMIN_INITIAL_PASSWORD>"}' \
+  http://localhost:3000/api/auth/login
+
+# Create a workspace (creator becomes owner)
+curl -s -b "$JAR" -H "X-CSRF-Token: $CSRF" -H 'content-type: application/json' \
+  -d '{"name":"Acme","slug":"acme"}' http://localhost:3000/api/workspaces
+
+# Create a site in the workspace
+curl -s -b "$JAR" -H "X-CSRF-Token: $CSRF" -H 'content-type: application/json' \
+  -d '{"name":"Acme Site","slug":"acme-site"}' \
+  http://localhost:3000/api/workspaces/<workspaceId>/sites
+
+# Create a page
+curl -s -b "$JAR" -H "X-CSRF-Token: $CSRF" -H 'content-type: application/json' \
+  -d '{"path":"/","title":"Home"}' http://localhost:3000/api/sites/<siteId>/pages
+
+# Create a hero block (props are validated against the block type schema)
+curl -s -b "$JAR" -H "X-CSRF-Token: $CSRF" -H 'content-type: application/json' \
+  -d '{"type":"hero","props":{"headline":"Welcome","alignment":"center"}}' \
+  http://localhost:3000/api/pages/<pageId>/blocks
+
+# Publish the site (queues a site_build job and a deployment)
+curl -s -b "$JAR" -H "X-CSRF-Token: $CSRF" -X POST \
+  http://localhost:3000/api/sites/<siteId>/publish
+```
+
 ## 5. Environment variables
 
 All configuration comes from environment variables — see `.env.example` (rules 10/11). Real values are never committed.
