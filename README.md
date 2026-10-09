@@ -278,6 +278,31 @@ curl -s -b "$JAR" -H "X-CSRF-Token: $CSRF" -X POST \
   http://localhost:3000/api/sites/<siteId>/publish
 ```
 
+## Dashboard Development
+
+The dashboard is a React 18 + Vite 5 + Tailwind CSS SPA in `apps/dashboard`
+(React Router + TanStack Query + Zod):
+
+```bash
+pnpm --filter dashboard dev        # dev server on http://localhost:5173
+pnpm --filter dashboard build      # typecheck + production build
+pnpm --filter dashboard preview    # preview the production build
+```
+
+- **API access:** the dev server proxies `/api` (and `/storage`) to the local API on
+  `http://localhost:3000` (vite.config.ts), so start the API first (`pnpm --filter api dev`).
+- **Base URL:** `VITE_PUBLIC_API_BASE_URL` (see `apps/dashboard/.env.example`) defaults to
+  `http://localhost:3000`; in production the dashboard is served behind
+  https://holonet.section-zero.link and uses same-origin `/api`.
+- **Routes:** `/login`, `/register`, `/dashboard`, `/sites`, `/sites/:siteId`,
+  `/sites/:siteId/pages`, `/sites/:siteId/pages/:pageId`, `/sites/:siteId/theme`,
+  `/sites/:siteId/publish`, `/sites/:siteId/forms`, `/sites/:siteId/import`, `/settings`,
+  `/admin` — routing and the professional layout (sidebar, top bar with workspace selector
+  placeholder) are in place; feature pages are placeholders until their phases land.
+- **API client:** `src/lib/api.ts` (fetch, cookies, CSRF header) with typed TanStack Query
+  hooks for health, me, workspaces, and sites (`src/api/hooks.ts`). Login/register forms call
+  the real auth endpoints.
+
 ## 5. Environment variables
 
 All configuration comes from environment variables — see `.env.example` (rules 10/11). Real values are never committed.
