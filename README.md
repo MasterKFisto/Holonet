@@ -297,6 +297,11 @@ All configuration comes from environment variables — see `.env.example` (rules
 | `OSS_PRIVATE_BUCKET`                           | OSS bucket for non-public resources: backups, form submissions, AI import snapshots                 |
 | `OSS_ENDPOINT`                                 | OSS API endpoint for the chosen region                                                              |
 | `OSS_PUBLIC_BASE_URL`                          | Public URL of the public bucket (static hosting origin)                                             |
+| `STORAGE_PROVIDER`                             | Storage provider: `fs` (local filesystem, development) or `oss` (production)                        |
+| `STORAGE_LOCAL_DIR`                            | Local storage root for `STORAGE_PROVIDER=fs` (default `.holonet-storage`)                           |
+| `OSS_REGION`                                   | OSS region for the storage package (falls back to `ALIBABA_CLOUD_REGION`)                           |
+| `OSS_ACCESS_KEY_ID` / `OSS_ACCESS_KEY_SECRET`  | OSS AccessKey pair for local OSS testing only (FC uses the RAM role via STS)                        |
+| `OSS_ROLE_ARN`                                 | Optional RAM role ARN for STS credentials on Function Compute                                       |
 | `AUTH_SECRET`                                  | Session signing secret (min 32 chars — HS256 key size); dev placeholder, replace in production      |
 | `SESSION_COOKIE_NAME`                          | Session cookie name (`holonet_session`)                                                             |
 | `SESSION_MAX_AGE_SECONDS`                      | Session token lifetime in seconds (default 604800 = 7 days)                                         |

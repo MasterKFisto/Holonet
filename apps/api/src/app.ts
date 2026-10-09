@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { createDatabase, type HolonetDatabase } from '@holonet/db';
+import { createStorageProviderFromEnv, type StorageProvider } from '@holonet/storage';
 import { corsOriginList, loadEnv, type Env } from './config/env.js';
 import { errorBody } from './lib/errors.js';
 import { errorHandler } from './middleware/error-handler.js';
@@ -17,19 +18,25 @@ import type { AppEnv } from './types.js';
  *
  * The same app serves local development (@hono/node-server in src/index.ts)
  * and Function Compute (HTTP-triggered handler in src/function.ts).
- * `db` is injectable for tests; by default a pool is created from
- * DATABASE_URL.
+ * `db` and `storage` are injectable for tests; by default they are created
+ * from DATABASE_URL and the storage environment variables (rules 10/11).
  */
-export function createApp(env: Env = loadEnv(), db?: HolonetDatabase): Hono<AppEnv> {
+export function createApp(
+  env: Env = loadEnv(),
+  db?: HolonetDatabase,
+  storage?: StorageProvider,
+): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
   const database = db ?? (env.DATABASE_URL ? createDatabase(env.DATABASE_URL) : undefined);
+  const storageProvider = storage ?? createStorageProviderFromEnv('public');
 
-  // Typed environment and database access for every handler/middleware.
+  // Typed environment, database, and storage access for every handler.
   app.use('*', async (c, next) => {
     c.set('env', env);
     if (database) {
       c.set('db', database);
     }
+    c.set('storage', storageProvider);
     await next();
   });
 

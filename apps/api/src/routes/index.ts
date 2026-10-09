@@ -1,6 +1,7 @@
 import type { Hono } from 'hono';
 import type { AppEnv } from '../types.js';
 import { adminRoutes } from './admin.js';
+import { assetRoutes } from './assets.js';
 import { authRoutes } from './auth.js';
 import { blockRoutes } from './blocks.js';
 import { formRoutes } from './forms.js';
@@ -17,6 +18,7 @@ export function mountRoutes(app: Hono<AppEnv>): Hono<AppEnv> {
   app.route('/', siteRoutes);
   app.route('/', pageRoutes);
   app.route('/', blockRoutes);
+  app.route('/', assetRoutes);
   app.route('/', formRoutes);
   app.route('/', adminRoutes);
   return app;

@@ -10,5 +10,11 @@
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "ali-oss": "^6.20.0"
+  },
+  "devDependencies": {
+    "@types/ali-oss": "^6.16.11"
   }
 }

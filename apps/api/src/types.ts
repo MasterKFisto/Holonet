@@ -1,4 +1,5 @@
 import type { HolonetDatabase } from '@holonet/db';
+import type { StorageProvider } from '@holonet/storage';
 import type { Env } from './config/env.js';
 
 /** The authenticated principal — set by requireUser once auth is implemented. */
@@ -30,5 +31,7 @@ export type AppEnv = {
     blockId?: string;
     /** Request-scoped database (set when DATABASE_URL is configured). */
     db?: HolonetDatabase;
+    /** Request-scoped public-bucket storage provider (rule 19). */
+    storage?: StorageProvider;
   };
 };

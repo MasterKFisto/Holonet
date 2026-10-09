@@ -48,6 +48,37 @@
 - **Private bucket** (`OSS_PRIVATE_BUCKET`) — non-public resources: database backups, form
   submissions, AI import snapshots. No public read.
 
+### OSS path conventions
+
+Object keys follow strict, validated conventions per bucket (packages/storage/src/keys.ts —
+`assertPublicBucketKey` / `assertPrivateBucketKey` enforce them; the `StorageProvider` contract
+is in packages/storage/src/provider.ts).
+
+**Public bucket** (`OSS_PUBLIC_BUCKET`):
+
+| Prefix                                       | Purpose                                                                                                                            |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `app/...`                                    | Platform assets served by the dashboard (JS bundles, fonts, icons).                                                                |
+| `sites/{siteId}/releases/{deploymentId}/...` | Published static site files for a deployment (the static generator writes here).                                                   |
+| `media/public/{workspaceId}/...`             | Tenant public media; uploaded assets live in `media/public/{workspaceId}/assets/{assetId}.{ext}` (POST /api/sites/:siteId/assets). |
+
+**Private bucket** (`OSS_PRIVATE_BUCKET`):
+
+| Prefix                                    | Purpose                                                          |
+| ----------------------------------------- | ---------------------------------------------------------------- |
+| `media/private/{workspaceId}/...`         | Tenant non-public media (e.g. source images before publication). |
+| `imports/{workspaceId}/{importJobId}/...` | Raw website import snapshots.                                    |
+| `backups/...`                             | Database and site backups.                                       |
+| `forms/{siteId}/{formId}/...`             | Form submission payloads and attachments.                        |
+
+**Providers** — `STORAGE_PROVIDER=fs` (local filesystem under `STORAGE_LOCAL_DIR`, default
+`.holonet-storage`, for development) or `STORAGE_PROVIDER=oss` (Alibaba OSS via ali-oss).
+OSS configuration comes from the environment only: `OSS_REGION` (fallback
+`ALIBABA_CLOUD_REGION`), `OSS_ENDPOINT`, `OSS_PUBLIC_BUCKET`/`OSS_PRIVATE_BUCKET`,
+`OSS_ACCESS_KEY_ID`/`OSS_ACCESS_KEY_SECRET` (local testing) and `OSS_ROLE_ARN` (optional —
+STS via the RAM role on Function Compute, PLACEHOLDER). Uploads set Content-Type and
+Cache-Control (immutable assets, `no-cache` JSON).
+
 ### RAM
 
 - **RAM user (deployment)** — a dedicated least-privilege user performs deployments (Function

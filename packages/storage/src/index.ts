@@ -1,29 +1,67 @@
 /**
  * Storage abstraction for Holonet.
  *
- * - `local` backend: development and tests (filesystem).
- * - `oss` backend: production static assets — Alibaba Cloud OSS
- *   (docs/PROJECT_RULES.md rule 19).
+ * - `fs` provider: local filesystem for development (STORAGE_PROVIDER=fs),
+ *   rooted at STORAGE_LOCAL_DIR (default .holonet-storage).
+ * - `oss` provider: Alibaba Cloud OSS for production (STORAGE_PROVIDER=oss).
  *
- * Backend implementations arrive in a later phase; only the contract is
- * defined here. All keys MUST be workspace-prefixed (`<workspaceId>/…`) to
- * keep tenant data isolated (rule 18).
+ * See docs/infrastructure.md for the bucket path conventions.
  */
 
-export type StorageBackend = 'local' | 'oss';
+export * from './provider.js';
+export * from './content-types.js';
+export * from './keys.js';
+export * from './fs.js';
+export * from './oss.js';
 
-export interface StoredObject {
-  key: string;
-  body: Buffer;
-  contentType: string;
+import { createFsStorageProvider } from './fs.js';
+import { createAlibabaOssStorageProvider } from './oss.js';
+import type { StorageProvider } from './provider.js';
+
+export type StorageScope = 'public' | 'private';
+
+/**
+ * Creates the storage provider for the given bucket scope from environment
+ * variables (rules 10/11 — credentials are never hardcoded):
+ *
+ * - STORAGE_PROVIDER: 'fs' (default) or 'oss'
+ * - fs:  STORAGE_LOCAL_DIR, PUBLIC_BASE_URL
+ * - oss: OSS_REGION (fallback ALIBABA_CLOUD_REGION), OSS_ENDPOINT,
+ *        OSS_PUBLIC_BUCKET / OSS_PRIVATE_BUCKET, OSS_ACCESS_KEY_ID /
+ *        OSS_ACCESS_KEY_SECRET (local testing), OSS_ROLE_ARN (optional,
+ *        FC STS), OSS_PUBLIC_BASE_URL
+ */
+export function createStorageProviderFromEnv(scope: StorageScope): StorageProvider {
+  const provider = process.env.STORAGE_PROVIDER ?? 'fs';
+
+  if (provider === 'fs') {
+    return createFsStorageProvider({
+      rootDir: process.env.STORAGE_LOCAL_DIR ?? '.holonet-storage',
+      bucket: scope,
+      publicBaseUrl: process.env.PUBLIC_BASE_URL ?? 'http://localhost:3000',
+    });
+  }
+
+  if (provider === 'oss') {
+    const region = process.env.OSS_REGION ?? process.env.ALIBABA_CLOUD_REGION;
+    if (!region) {
+      throw new Error('OSS storage requires OSS_REGION (or ALIBABA_CLOUD_REGION)');
+    }
+    const bucket =
+      scope === 'public' ? process.env.OSS_PUBLIC_BUCKET : process.env.OSS_PRIVATE_BUCKET;
+    if (!bucket) {
+      throw new Error(`OSS storage requires OSS_${scope.toUpperCase()}_BUCKET`);
+    }
+    return createAlibabaOssStorageProvider({
+      region,
+      bucket,
+      endpoint: process.env.OSS_ENDPOINT || undefined,
+      accessKeyId: process.env.OSS_ACCESS_KEY_ID || undefined,
+      accessKeySecret: process.env.OSS_ACCESS_KEY_SECRET || undefined,
+      roleArn: process.env.OSS_ROLE_ARN || undefined,
+      publicBaseUrl: scope === 'public' ? process.env.OSS_PUBLIC_BASE_URL || undefined : undefined,
+    });
+  }
+
+  throw new Error(`unknown STORAGE_PROVIDER: ${provider}`);
 }
-
-export interface StorageBackendContract {
-  readonly kind: StorageBackend;
-  put(key: string, body: Buffer, contentType: string): Promise<void>;
-  get(key: string): Promise<StoredObject | null>;
-  delete(key: string): Promise<void>;
-  list(prefix: string): Promise<string[]>;
-}
-
-export const STORAGE_BACKENDS: readonly StorageBackend[] = ['local', 'oss'] as const;

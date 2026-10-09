@@ -24,3 +24,6 @@ pnpm-debug.log*
 
 # Local backups
 backups/
+
+# Local object storage (development, STORAGE_PROVIDER=fs)
+.holonet-storage/
