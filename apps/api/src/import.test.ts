@@ -60,7 +60,7 @@ async function importRequest(body: unknown): Promise<Response> {
   });
 }
 
-describe.skipIf(!hasDb)('holonet-api website import (integration)', () => {
+describe.skipIf(!hasDb).sequential('holonet-api website import (integration)', () => {
   beforeAll(async () => {
     db = createDatabase(dbUrl!);
     const env = loadEnv({
@@ -104,6 +104,7 @@ describe.skipIf(!hasDb)('holonet-api website import (integration)', () => {
   });
 
   it('requires ownership confirmation', async () => {
+    const jobsBefore = (await db.select().from(importJobs)).length;
     const res = await importRequest({
       sourceUrl: 'https://example.com',
       ownershipConfirmed: false,
@@ -112,8 +113,8 @@ describe.skipIf(!hasDb)('holonet-api website import (integration)', () => {
     const body = (await res.json()) as { error: { code: string; message: string } };
     expect(body.error.code).toBe('VALIDATION_ERROR');
     expect(body.error.message).toContain('ownership');
-    // No job was created.
-    expect(await db.select().from(importJobs)).toHaveLength(0);
+    // No new job was created by this request.
+    expect(await db.select().from(importJobs)).toHaveLength(jobsBefore);
   });
 
   it('creates an import job and rejects localhost sources safely', async () => {

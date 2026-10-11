@@ -113,7 +113,7 @@ async function registerUser(email: string): Promise<string> {
   return sessionFrom(res);
 }
 
-describe.skipIf(!hasDb)('holonet-api asset uploads (mocked storage)', () => {
+describe.skipIf(!hasDb).sequential('holonet-api asset uploads (mocked storage)', () => {
   beforeAll(async () => {
     db = createDatabase(dbUrl!);
     storage = new MockStorageProvider();
@@ -153,6 +153,7 @@ describe.skipIf(!hasDb)('holonet-api asset uploads (mocked storage)', () => {
   });
 
   it('uploads an image asset to the public bucket', async () => {
+    const callsBeforeUpload = storage.putCalls.length;
     const file = new File([new Uint8Array([1, 2, 3, 4])], 'photo.jpg', { type: 'image/jpeg' });
     const res = await app.request(`/api/sites/${siteId}/assets`, {
       method: 'POST',
@@ -175,9 +176,9 @@ describe.skipIf(!hasDb)('holonet-api asset uploads (mocked storage)', () => {
     expect(body.asset.sizeBytes).toBe(4);
     expect(body.asset.url).toBe(`http://mock-storage/${body.asset.storageKey}`);
 
-    // Storage provider received the object with content type + cache control.
-    expect(storage.putCalls).toHaveLength(1);
-    expect(storage.putCalls[0]).toMatchObject({
+    // Storage provider received exactly one new object with the right options.
+    expect(storage.putCalls).toHaveLength(callsBeforeUpload + 1);
+    expect(storage.putCalls[callsBeforeUpload]).toMatchObject({
       key: body.asset.storageKey,
       options: { contentType: 'image/jpeg', cacheControl: 'public, max-age=31536000, immutable' },
     });

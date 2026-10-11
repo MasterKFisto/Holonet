@@ -85,7 +85,7 @@ async function submissionCount(ofFormId: string): Promise<number> {
   return rows.length;
 }
 
-describe.skipIf(!hasDb)('holonet-api forms (integration)', () => {
+describe.skipIf(!hasDb).sequential('holonet-api forms (integration)', () => {
   beforeAll(async () => {
     db = createDatabase(dbUrl!);
     const env = loadEnv({

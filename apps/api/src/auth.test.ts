@@ -53,7 +53,7 @@ let app: ReturnType<typeof createApp>;
 let userId = '';
 let activeSession = '';
 
-describe.skipIf(!hasDb)('holonet-api authentication (integration)', () => {
+describe.skipIf(!hasDb).sequential('holonet-api authentication (integration)', () => {
   beforeAll(async () => {
     db = createDatabase(dbUrl!);
     const env = loadEnv({

@@ -66,7 +66,7 @@ async function api(method: string, path: string, body?: unknown): Promise<Respon
   });
 }
 
-describe.skipIf(!hasDb)('holonet publishing pipeline (integration)', () => {
+describe.skipIf(!hasDb).sequential('holonet publishing pipeline (integration)', () => {
   beforeAll(async () => {
     storageDir = mkdtempSync(join(tmpdir(), 'holonet-publish-'));
     storage = createFsStorageProvider({

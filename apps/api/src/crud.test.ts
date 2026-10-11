@@ -81,7 +81,7 @@ async function api(
   });
 }
 
-describe.skipIf(!hasDb)('holonet-api CRUD (integration)', () => {
+describe.skipIf(!hasDb).sequential('holonet-api CRUD (integration)', () => {
   beforeAll(async () => {
     db = createDatabase(dbUrl!);
     const env = loadEnv({
