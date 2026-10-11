@@ -15,6 +15,8 @@ variables (`.env.deploy`, never committed; docs/PROJECT_RULES.md rules 10/11).
 | `dashboard-assets.json` | Manifest written by `infra/scripts/upload-dashboard-assets.mjs` (baked into `holonet-app`).                        |
 
 Deployment procedure: [docs/deployment.md](../../docs/deployment.md).
+**Account/infrastructure setup (RAM users/roles, OSS, VPC, PostgreSQL, custom
+domain): [docs/alibaba-cloud-setup.md](../../docs/alibaba-cloud-setup.md).**
 Assumptions and placeholders: [docs/infrastructure.md](../../docs/infrastructure.md).
 
 ## Functions

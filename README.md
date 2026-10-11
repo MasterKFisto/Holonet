@@ -379,7 +379,7 @@ Production runs on Alibaba Cloud:
   entrypoint; a separate function `holonet-builder` performs static site builds. Both run Node.js
   20 in the region `ALIBABA_CLOUD_REGION`, attach to the VPC
   (`VPC_ID`/`VSWITCH_IDS`/`SECURITY_GROUP_ID`), and run under the RAM role `FC_ROLE_ARN`. See
-  `infra/alibaba/fc/`.
+  `infra/alibaba/s.yaml` (Serverless Devs).
 - **Database** — PostgreSQL 16 runs in Docker on a Docker host (ECS) inside the VPC. Function
   Compute cannot host a persistent database, so connectivity is over the VPC private network
   only; the database is never publicly exposed. See docs/infrastructure.md.
@@ -398,6 +398,8 @@ Production runs on Alibaba Cloud:
 
 Full procedure: [docs/deployment.md](docs/deployment.md). Architecture and request flow:
 [docs/architecture.md](docs/architecture.md). Configuration templates: `infra/alibaba/`.
+**Account/infrastructure setup (RAM users/roles, OSS, VPC, PostgreSQL, domain):
+[docs/alibaba-cloud-setup.md](docs/alibaba-cloud-setup.md).**
 Placeholder assumptions are marked `PLACEHOLDER` in the relevant files.
 
 ## 7. Fixed hostname
@@ -411,5 +413,6 @@ It is wired through `PUBLIC_BASE_URL` and `OSS_PUBLIC_BASE_URL` in `.env.example
 - [docs/PROJECT_RULES.md](docs/PROJECT_RULES.md) — the 20 project rules and architecture summary
 - [docs/architecture.md](docs/architecture.md) — full architecture: local and production diagrams, request flow, upgrade paths
 - [docs/infrastructure.md](docs/infrastructure.md) — local and Alibaba Cloud infrastructure, network, RAM/OSS, secrets policy
+- [docs/alibaba-cloud-setup.md](docs/alibaba-cloud-setup.md) — step-by-step Alibaba Cloud account setup (RAM users/roles, OSS buckets, VPC, PostgreSQL in Docker, custom domain, policy examples)
 - [docs/security.md](docs/security.md) — security posture and threat handling
 - [docs/deployment.md](docs/deployment.md) — deployment and operations procedure
