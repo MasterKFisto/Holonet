@@ -2,6 +2,39 @@
 
 Holonet is security-first. This document records the standing security posture; it is updated in every phase (rule 13).
 
+## Hardening status (launch verification)
+
+| Area            | Control                                                                       | Status                                                                                                               |
+| --------------- | ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Authentication  | scrypt password hashing (constant-time verify)                                | ✅ `packages/security/src/password.ts`                                                                               |
+| Authentication  | HTTP-only, `Secure` (prod), `SameSite=Lax` session cookie                     | ✅ `apps/api/src/lib/session-cookie.ts`                                                                              |
+| Authentication  | Login rate limiting (5 fails / 15 min per IP+email)                           | ✅ `apps/api/src/middleware/login-rate-limit.ts`                                                                     |
+| Authentication  | Failed-login security events                                                  | ✅ `security_events` (`login_failed`, `login_rate_limited`)                                                          |
+| Authentication  | **Admin MFA**                                                                 | ⚠️ Placeholder — data model exists, TOTP flow not yet enforced (see "MFA"). Blocking launch risk; mitigations below. |
+| API             | Zod validation on all inputs                                                  | ✅ route schemas via `z` from `@holonet/security`                                                                    |
+| API             | Tenant isolation checks                                                       | ✅ `requireSiteAccess` / `requirePageAccess` / `requireBlockAccess` / `requireFormAccess` + `workspaceFilter`        |
+| API             | CSRF protection for state-changing routes                                     | ✅ double-submit cookie (`/forms` public route exempted by design)                                                   |
+| API             | Security headers                                                              | ✅ `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, CSP, HSTS (prod)            |
+| API             | Error responses without stack traces                                          | ✅ `errorHandler` → stable JSON, `INTERNAL_ERROR` only                                                               |
+| API             | Request logging                                                               | ✅ `X-Request-Id` + structured request logs                                                                          |
+| API             | Audit logging                                                                 | ✅ `audit_logs` (auth, workspace, site, import events)                                                               |
+| Storage         | Public bucket for intended public assets only                                 | ✅ bucket-scoped storage providers                                                                                   |
+| Storage         | Private bucket for backups/imports/forms/AI raw snapshots                     | ✅ private provider + `imports/{ws}/{job}/raw/…` keys                                                                |
+| Storage         | Database backups never public                                                 | ✅ backups stored locally / private bucket only (see "Network and storage")                                          |
+| Storage         | No private media public                                                       | ✅ private provider issues no public URLs                                                                            |
+| Storage         | Signed URLs for private assets                                                | ✅ `StorageProvider.getSignedUrl` (fs → plain URL; OSS → signed)                                                     |
+| AI import       | SSRF protection (URL validation, private-IP blocking, redirect re-validation) | ✅ `packages/ai/src/url-guard.ts` + fetcher                                                                          |
+| AI import       | robots.txt consideration                                                      | ✅ respected where practical                                                                                         |
+| AI import       | Ownership confirmation                                                        | ✅ mandatory `ownershipConfirmed`                                                                                    |
+| AI import       | Untrusted content handling                                                    | ✅ sanitization + length caps + HTML escaping (rule 17)                                                              |
+| AI import       | AI output schema validation                                                   | ✅ Zod `importAnalysisOutputSchema` + re-validation before draft creation                                            |
+| AI import       | No automatic publish                                                          | ✅ imports create draft pages only; no deployments/`current.json`                                                    |
+| Published sites | Static output only                                                            | ✅ `packages/static-generator`                                                                                       |
+| Published sites | Security headers for published output                                         | ✅ `headers.json` (CDN/OSS layer) + strict CSP `<meta>` baked into every page                                        |
+| Published sites | No public database access                                                     | ✅ static files only                                                                                                 |
+| Published sites | No CMS login exposed on public site                                           | ✅ dashboard is a separate origin; published sites expose only the public `POST /forms/:formId` endpoint             |
+| Published sites | CSP recommendations                                                           | ✅ see "Published site security"                                                                                     |
+
 ## Secrets and configuration (rules 10/11)
 
 - No real secrets, AccessKeys, passwords, database credentials, or private keys are stored in code or documentation — ever.
@@ -185,6 +218,14 @@ Implementation: `apps/api/src/routes/sites.ts` (`importSiteHandler`),
 - `users.mfa_secret`, `users.mfa_enabled`, and `users.mfa_recovery_codes` exist in the schema.
   The full MFA enrollment/challenge flow (TOTP) arrives in a later phase; no MFA fields are ever
   returned by the API.
+- **Launch consideration:** admin MFA is the one blocking hardening gap (see the hardening
+  status table). Until the TOTP flow lands, mitigate with:
+  1. a dedicated admin account with a unique, high-entropy password not used anywhere else;
+  2. failed-login alerts via the `security_events` stream (`login_failed` /
+     `login_rate_limited` — monitor them in SLS);
+  3. admin logins only from a trusted network path (no shared dashboards);
+  4. implement the TOTP enrollment/challenge flow before granting admin to anyone beyond the
+     single bootstrap operator.
 
 ### Error disclosure
 
@@ -203,7 +244,30 @@ Implementation: `apps/api/src/routes/sites.ts` (`importSiteHandler`),
 - Traffic is HTTPS-only; the fixed hostname `https://holonet.section-zero.link` fronts the platform.
 - OSS private bucket has no public read; the public bucket policy allows `GetObject` only (see `infra/alibaba/oss/oss-bucket-policy.example.json`).
 - Function Compute runs in the VPC (`VPC_ID`/`VSWITCH_IDS`/`SECURITY_GROUP_ID`) with a least-privilege RAM role (`infra/alibaba/ram/`).
-- Backups are stored in the private OSS bucket; restore is an explicit, audited operation.
+- **Backups are stored in the private OSS bucket (or locally on the Docker host)** — a database
+  dump must never land in the public bucket, in the repository (`backups/` is git-ignored), or on
+  any public URL. Restore is an explicit, audited operation.
+- **Private media stays private:** the private storage provider issues no public URLs; when
+  private objects need to be shown, use `StorageProvider.getSignedUrl` (time-limited; OSS-signed,
+  local fs returns the plain URL — nothing to sign).
+
+## Published site security
+
+Published sites are fully static (`packages/static-generator`) and carry their own hardening:
+
+- **Strict CSP baked into every page** as a `<meta http-equiv="Content-Security-Policy">`:
+  `default-src 'none'; style-src 'self'; img-src 'self' data: https:; script-src 'self';
+font-src 'self'; base-uri 'self'; form-action <site origin>; frame-ancestors 'none'`.
+  Generated pages contain no inline scripts or styles, so no `'unsafe-inline'` is needed.
+- **`headers.json`** in every release recommends the same header set for the CDN/OSS layer
+  (`X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, `X-Frame-Options`,
+  CSP), plus per-path cache rules (`*.html` → `no-cache`, `/assets/*` → immutable).
+- **No database access from the public site** — visitors only ever receive static files from
+  OSS and the public `POST /forms/:formId` endpoint (abuse-protected, see above).
+- **No CMS surface on the public site** — the dashboard and its login live on a separate
+  origin; published pages contain no admin links, no `/api` references, and no CMS markup.
+- Form submissions are constrained by the page CSP (`form-action`) to the site's configured
+  base origin.
 
 ## Placeholder / upcoming
 

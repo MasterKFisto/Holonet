@@ -297,6 +297,28 @@ function applyTitleTemplate(seo: TemplateManifest['seo'], pageTitle: string): st
   return seo.titleTemplate ? seo.titleTemplate.replaceAll('{title}', pageTitle) : pageTitle;
 }
 
+/** Strict CSP for published pages — static HTML only, no inline scripts/styles. */
+function cspMeta(site: SiteShell): string {
+  // Form submissions go to `${baseUrl}/forms/…` — allow that origin only.
+  let formOrigin = 'https://holonet.section-zero.link';
+  try {
+    formOrigin = new URL(site.baseUrl).origin;
+  } catch {
+    // keep the fixed default
+  }
+  const policy = [
+    "default-src 'none'",
+    "style-src 'self'",
+    "img-src 'self' data: https:",
+    "script-src 'self'",
+    "font-src 'self'",
+    "base-uri 'self'",
+    `form-action ${formOrigin}`,
+    "frame-ancestors 'none'",
+  ].join('; ');
+  return `<meta http-equiv="Content-Security-Policy" content="${escapeHtml(policy)}" />`;
+}
+
 /** Renders a full HTML document for one page. */
 export function renderPage(site: SiteShell, page: SnapshotPage): string {
   const title = applyTitleTemplate(site.template.seo, page.title);
@@ -320,6 +342,7 @@ export function renderPage(site: SiteShell, page: SnapshotPage): string {
     <meta property="og:title" content="${escapeHtml(title)}" />
     <meta property="og:description" content="${escapeHtml(description)}" />
     <meta property="og:url" content="${escapeHtml(canonical)}" />
+    ${cspMeta(site)}
     <link rel="stylesheet" href="${cssPath}" />
   </head>
   <body>

@@ -80,6 +80,28 @@ describe('@holonet/static-generator', () => {
     expect(html).toContain('<title>Home | Professional Services Firm</title>');
   });
 
+  it('emits a strict CSP (static HTML only — no inline scripts/styles)', async () => {
+    const output = await generateStaticSite(snapshot());
+    const html = output.files['index.html']!;
+    expect(html).toContain('http-equiv="Content-Security-Policy"');
+    // Attribute values are HTML-escaped — browsers decode entities before
+    // enforcing the policy, so &#39; is the literal ' here.
+    expect(html).toContain('default-src &#39;none&#39;');
+    expect(html).toContain('frame-ancestors &#39;none&#39;');
+    // Forms may only post to the site's configured base origin.
+    expect(html).toContain('form-action https://holonet.section-zero.link');
+    expect(html).not.toContain('unsafe-inline');
+  });
+
+  it('recommends security headers for published sites (headers.json)', async () => {
+    const output = await generateStaticSite(snapshot());
+    const headers = JSON.parse(output.files['headers.json']!) as {
+      headers: Record<string, string>;
+    };
+    expect(headers.headers['Content-Security-Policy']).toContain("script-src 'self'");
+    expect(headers.headers['X-Content-Type-Options']).toBe('nosniff');
+  });
+
   it('includes navigation and footer', async () => {
     const output = await generateStaticSite(snapshot());
     const html = output.files['index.html']!;
