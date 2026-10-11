@@ -25,10 +25,41 @@ TypeScript code runs in two environments:
 | `packages/core`             | Shared constants (service name, public base URL) and domain identifier types (`WorkspaceId`, `SiteId`).                                                                                                                                                  |
 | `packages/db`               | Drizzle ORM schema, migrations, and a PostgreSQL client factory.                                                                                                                                                                                         |
 | `packages/storage`          | Storage abstraction with `local` (development/tests) and `oss` (production) backends.                                                                                                                                                                    |
-| `packages/templates`        | Template manifest and block schemas (Zod) — the contract templates and the generator agree on.                                                                                                                                                           |
-| `packages/static-generator` | Turns Holonet site data into static website files (HTML, CSS, JS, assets).                                                                                                                                                                               |
+| `packages/templates`        | Template manifests (Zod): identity, semver, default pages, theme and SEO defaults; ships three built-in templates (`professional-services`, `law-firm`, `accounting-firm`).                                                                              |
+| `packages/static-generator` | `generateStaticSite()`: site snapshot → static site (index.html, page files, sitemap.xml, robots.txt, assets/styles.css, headers.json) with escaped, theme-driven HTML.                                                                                  |
 | `packages/ai`               | AI import provider interfaces (`AiImportProvider`) plus a provider registry.                                                                                                                                                                             |
 | `packages/security`         | Validation (Zod), rate limiting, audit logging, and security event utilities.                                                                                                                                                                            |
+
+## Template system and static generation
+
+### Template manifests (packages/templates)
+
+- Templates are defined by **manifests** validated with Zod (`templateManifestSchema`):
+  identity (`id`, `name`, semver `version`, `category`), default pages (path, title,
+  description, initial blocks), **theme defaults** (colors, fonts), and **SEO defaults**
+  (`titleTemplate`, description, author).
+- Every template block is validated against the block type schemas in `@holonet/core`
+  (untrusted data, rule 17).
+- **Built-in templates:** `professional-services`, `law-firm`, `accounting-firm` — each ships
+  the seven default pages (home, about, services, team, contact, privacy-policy,
+  terms-of-use) with ready-made blocks and a distinct theme and SEO profile.
+- Persistence: `templates` + `template_versions` rows store the manifest JSONB; the generator
+  re-validates whatever manifest it is handed, wherever it came from.
+
+### Static generation (packages/static-generator)
+
+- `generateStaticSite(input: HolonetSiteSnapshot)` → `GeneratedSiteOutput` with **key/content
+  pairs** ready for upload under `sites/{siteId}/releases/{deploymentId}/…` in OSS.
+- Output always includes: `index.html` (the `/` page), one directory-style `index.html` per
+  page, `sitemap.xml`, `robots.txt`, `assets/styles.css` (responsive, theme-driven CSS
+  variables), and `headers.json` (recommended security headers + cache rules for the
+  CDN/OSS layer).
+- Generated HTML includes meta title/description, canonical URL, Open Graph tags, site
+  navigation, footer, and contact-form markup when a `contact_form` block exists.
+- All block props and titles are HTML-escaped at render time (rule 17); unknown block types
+  render nothing.
+- The builder worker (apps/builder) will feed DB-loaded site snapshots through the generator
+  and upload the output via `packages/storage`.
 
 ## Local development architecture
 

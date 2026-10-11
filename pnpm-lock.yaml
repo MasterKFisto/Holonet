@@ -66,6 +66,9 @@ importers:
       '@holonet/static-generator':
         specifier: workspace:*
         version: link:../../packages/static-generator
+      '@holonet/templates':
+        specifier: workspace:*
+        version: link:../../packages/templates
     devDependencies:
       tsx:
         specifier: ^4.19.1
@@ -178,6 +181,9 @@ importers:
 
   packages/templates:
     dependencies:
+      '@holonet/core':
+        specifier: workspace:*
+        version: link:../core
       zod:
         specifier: ^3.23.8
         version: 3.25.76

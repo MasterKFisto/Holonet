@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { generateSite, type SiteData } from '@holonet/static-generator';
+import { professionalServicesTemplate } from '@holonet/templates';
+import { generateStaticSite } from '@holonet/static-generator';
 import { handleBuild } from './index.js';
 
 describe('@holonet/builder', () => {
@@ -9,12 +10,15 @@ describe('@holonet/builder', () => {
   });
 
   it('can invoke the static generator (workspace link check)', async () => {
-    const siteData: SiteData = {
+    const output = await generateStaticSite({
       workspaceId: 'ws-1',
       siteId: 'site-1',
-      template: { id: 'tpl-1', name: 'Starter', version: '1.0.0', blocks: [] },
-    };
-    const files = await generateSite(siteData);
-    expect(Array.isArray(files)).toBe(true);
+      siteName: 'Example Firm',
+      baseUrl: 'https://holonet.section-zero.link',
+      template: professionalServicesTemplate,
+      pages: [],
+    });
+    expect(output.files['index.html']).toBeTruthy();
+    expect(output.files['sitemap.xml']).toBeTruthy();
   });
 });

@@ -1,26 +1,19 @@
-import { z } from 'zod';
+export * from './schema.js';
 
-/**
- * Holonet template manifests and block schemas.
- *
- * Real templates ship in a later phase; these schemas define the contract
- * that templates and the static generator agree on. Block content is always
- * treated as untrusted input (docs/PROJECT_RULES.md rule 17).
- */
+import { accountingFirmTemplate } from './templates/accounting-firm.js';
+import { lawFirmTemplate } from './templates/law-firm.js';
+import { professionalServicesTemplate } from './templates/professional-services.js';
+import type { TemplateManifest } from './schema.js';
 
-export const blockSchema = z.object({
-  id: z.string(),
-  type: z.string(),
-  content: z.unknown(),
-});
+/** Built-in Holonet templates, validated against templateManifestSchema. */
+export const holonetTemplates: TemplateManifest[] = [
+  professionalServicesTemplate,
+  lawFirmTemplate,
+  accountingFirmTemplate,
+];
 
-export type Block = z.infer<typeof blockSchema>;
+export { accountingFirmTemplate, lawFirmTemplate, professionalServicesTemplate };
 
-export const templateManifestSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  version: z.string(),
-  blocks: z.array(blockSchema),
-});
-
-export type TemplateManifest = z.infer<typeof templateManifestSchema>;
+export function getTemplate(id: string): TemplateManifest | undefined {
+  return holonetTemplates.find((template) => template.id === id);
+}

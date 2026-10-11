@@ -15,7 +15,8 @@
   },
   "dependencies": {
     "@holonet/core": "workspace:*",
-    "@holonet/static-generator": "workspace:*"
+    "@holonet/static-generator": "workspace:*",
+    "@holonet/templates": "workspace:*"
   },
   "devDependencies": {
     "tsx": "^4.19.1"
