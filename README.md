@@ -243,6 +243,13 @@ curl -i http://localhost:3000/api/workspaces   # 401 UNAUTHORIZED (auth required
   `pending → fetching → analyzing → completed | failed | rejected`, records an `ai_analyses`
   row, and never publishes anything (draft pages only, in the content-generation phase).
   Admins inspect jobs via `GET /api/admin/import-jobs`. Full design: docs/security.md.
+- **AI analysis providers** (`packages/ai/src/provider.ts`): the import analysis is pluggable —
+  `ManualProvider` (offline HTML parsing, default), `HttpAIProvider` (OpenAI/Qwen-compatible
+  endpoint via `AI_ENDPOINT`/`AI_API_KEY`/`AI_MODEL`, versioned structured prompt, JSON output
+  validated with Zod), and an `OllamaProvider` placeholder. Provider failures fall back to
+  manual; validated output (stored on `ai_analyses` with provider/model/prompt version) creates
+  draft pages/blocks, theme tokens, and a template link — never a publish. See
+  docs/architecture.md ("AI import providers").
 - **Authorization:** `requireUser`, `requireAdmin`, and `requireWorkspaceAccess` are real
   middleware — workspace routes already enforce tenant isolation (rule 18).
 - **Error shape** (stable — clients rely on `code`, never on `message`):

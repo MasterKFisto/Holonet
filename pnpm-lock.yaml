@@ -50,6 +50,9 @@ importers:
       '@holonet/storage':
         specifier: workspace:*
         version: link:../../packages/storage
+      '@holonet/templates':
+        specifier: workspace:*
+        version: link:../../packages/templates
       '@hono/node-server':
         specifier: ^1.13.5
         version: 1.19.17(hono@4.13.13)
@@ -137,6 +140,9 @@ importers:
       '@holonet/core':
         specifier: workspace:*
         version: link:../core
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
 
   packages/core:
     dependencies:

@@ -29,6 +29,13 @@
       "when": 1791695072732,
       "tag": "0003_wise_spot",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791696187042,
+      "tag": "0004_tricky_synch",
+      "breakpoints": true
     }
   ]
 }

@@ -2,7 +2,13 @@ import { randomUUID } from 'node:crypto';
 import { lookup } from 'node:dns/promises';
 import { Hono, type Context } from 'hono';
 import { and, desc, eq, sql } from 'drizzle-orm';
-import { ImportError, importWebsite } from '@holonet/ai';
+import {
+  ImportError,
+  PROMPT_TEMPLATE_VERSION,
+  analyzeWithFallback,
+  createAiProvider,
+  fetchSitePages,
+} from '@holonet/ai';
 import {
   aiAnalyses,
   deployments,
@@ -14,6 +20,7 @@ import {
 } from '@holonet/db';
 import { z } from '@holonet/security';
 import { requireBuilder, requireDb, requirePrivateStorage, requireStorage } from '../lib/db.js';
+import { applyImportAnalysis } from '../lib/import-draft.js';
 import { AppError } from '../lib/errors.js';
 import { ipHashOf, recordAuditLog } from '../lib/security.js';
 import { requireSiteAccess } from '../middleware/access.js';
@@ -355,7 +362,7 @@ const importSiteHandler = async (c: Context<AppEnv>): Promise<Response> => {
     // 3. Fetching — SSRF-safe, bounded, credential-free (docs/security.md).
     await updateImportJob(db, job!.id, { status: 'fetching', startedAt: new Date() });
 
-    const result = await importWebsite(
+    const result = await fetchSitePages(
       body.sourceUrl,
       {
         resolveHost: async (hostname) => {
@@ -420,28 +427,56 @@ const importSiteHandler = async (c: Context<AppEnv>): Promise<Response> => {
     );
     rawKeys.push(`imports/${workspaceId}/${job!.id}/raw/manifest.json`);
 
-    // 5. Analyzing — ai_analyses usage. Output is untrusted data (rule 17).
+    // 5. Analyzing — provider pipeline with manual fallback. The AI output is
+    //    validated with Zod before any draft is created (rule 17).
     await updateImportJob(db, job!.id, { status: 'analyzing' });
+    const provider = createAiProvider(env);
+    const outcome = await analyzeWithFallback(provider, {
+      sourceUrl: body.sourceUrl,
+      pages: result.pages,
+      robots: result.robots,
+    });
+
+    // 6. Store the AI output (provider, model, prompt template version).
     await db.insert(aiAnalyses).values({
       workspaceId,
       importJobId: job!.id,
       siteId,
-      model: env.AI_MODEL,
-      input: { sourceUrl: body.sourceUrl, pageCount: result.pages.length },
-      output: { ...result.analysis },
+      model: outcome.model,
+      provider: outcome.providerUsed,
+      promptTemplateVersion: PROMPT_TEMPLATE_VERSION,
+      input: {
+        sourceUrl: body.sourceUrl,
+        pageCount: result.pages.length,
+        providerConfigured: provider.name,
+      },
+      output: {
+        ...outcome.analysis,
+        fallbackFrom: outcome.fallbackFrom,
+      },
       tokenUsage: {},
       status: 'completed',
     });
 
-    // 6. Nothing is published automatically. Imported content may only ever
-    //    become draft pages (the content-generation phase); the analysis is
-    //    the foundation artifact.
+    // 7. Draft creation — draft pages/blocks only, never published. The
+    //    import job stays linked to the site (import_jobs.site_id).
+    const draft = await applyImportAnalysis({
+      db,
+      workspaceId,
+      siteId,
+      analysis: outcome.analysis,
+    });
+
     await finish('completed', {
       stats: {
         pagesFetched: result.pages.length,
         robots: result.robots,
         rawKeys,
-        suggestedTemplate: result.analysis.suggestedTemplate,
+        provider: outcome.providerUsed,
+        model: outcome.model,
+        fallbackFrom: outcome.fallbackFrom,
+        suggestedTemplate: outcome.analysis.suggestedTemplate,
+        draft,
       },
     });
   } catch (error) {

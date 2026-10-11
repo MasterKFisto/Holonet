@@ -689,6 +689,10 @@ export const aiAnalyses = pgTable(
     importJobId: uuid('import_job_id').references(() => importJobs.id, { onDelete: 'set null' }),
     siteId: uuid('site_id').references(() => sites.id, { onDelete: 'set null' }),
     model: text('model').notNull(),
+    /** Provider that produced the output ('manual' | 'http' | 'ollama'). */
+    provider: text('provider').notNull().default('manual'),
+    /** Prompt template version — the prompt is versioned (docs/architecture.md). */
+    promptTemplateVersion: text('prompt_template_version'),
     /** Prompt input and AI output are untrusted data (rule 17). */
     input: jsonb('input').$type<unknown>(),
     output: jsonb('output').$type<unknown>().notNull(),

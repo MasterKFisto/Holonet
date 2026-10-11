@@ -35,6 +35,17 @@ export const envSchema = z.object({
    */
   AI_MODEL: z.string().min(1).default('holonet-heuristics'),
   /**
+   * AI analysis provider: 'manual' (offline heuristics, default), 'http'
+   * (OpenAI/Qwen-compatible endpoint), or 'ollama' (placeholder).
+   */
+  AI_PROVIDER: z.enum(['manual', 'http', 'ollama']).default('manual'),
+  /** OpenAI- or Qwen-compatible chat completions endpoint (AI_PROVIDER=http). */
+  AI_ENDPOINT: z.string().url().optional(),
+  /** Bearer token for the AI endpoint (AI_PROVIDER=http). */
+  AI_API_KEY: z.string().min(1).optional(),
+  /** Future local Ollama endpoint (AI_PROVIDER=ollama placeholder). */
+  OLLAMA_ENDPOINT: z.string().url().optional(),
+  /**
    * Website importer limits (pages, bytes, timeout). Kept conservative:
    * the importer fetches at most 3 pages of at most 5 MiB each, 20 s each.
    */

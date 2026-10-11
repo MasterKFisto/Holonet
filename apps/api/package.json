@@ -20,6 +20,7 @@
     "@holonet/db": "workspace:*",
     "@holonet/security": "workspace:*",
     "@holonet/storage": "workspace:*",
+    "@holonet/templates": "workspace:*",
     "@hono/node-server": "^1.13.5",
     "drizzle-orm": "^0.36.0",
     "hono": "^4.6.3"

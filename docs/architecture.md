@@ -212,6 +212,51 @@ sequenceDiagram
 6. **Untrusted content.** Imported websites and AI output are treated as untrusted data and
    sanitized at the generation boundary (rule 17).
 
+## AI import providers (packages/ai/src/provider.ts)
+
+The import pipeline is fetch → analyze → draft. Analysis is pluggable behind one interface:
+
+```
+AIProvider.analyzeWebsiteImport(input: ImportAnalysisInput): Promise<ImportAnalysisOutput>
+```
+
+**Providers:**
+
+| Provider         | Selection            | Behavior                                                                                                                                                                                                                                                    |
+| ---------------- | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ManualProvider` | default              | Offline: parses fetched HTML into a conservative structured draft (title, headings, text snippets, navigation, images, contact details, social links, template suggestion). No external calls, no code execution.                                           |
+| `HttpAIProvider` | `AI_PROVIDER=http`   | Calls an OpenAI- or Qwen-compatible chat-completions endpoint (`AI_ENDPOINT`, `AI_API_KEY`, `AI_MODEL`) with a versioned, structured prompt (`PROMPT_TEMPLATE_VERSION = holonet-import-v1`), `response_format: { type: json_object }`, and low temperature. |
+| `OllamaProvider` | `AI_PROVIDER=ollama` | PLACEHOLDER for a local Docker-hosted model. Fails fast; the pipeline falls back to manual, so Ollama is never required.                                                                                                                                    |
+
+**Guarantees:**
+
+- **Zod-validated output.** `importAnalysisOutputSchema` is the single contract
+  (businessName, siteType, suggestedTemplate, designTokens, navigation, pages with block
+  suggestions, contact, socialLinks, warnings). HttpAIProvider rejects any response that does
+  not parse to the schema; the draft creator re-validates before touching the database.
+- **Manual fallback.** `analyzeWithFallback` catches provider failures (network, auth, invalid
+  JSON output) and falls back to `ManualProvider`, recording `fallbackFrom` on the analysis so
+  the import never loses fetched content.
+- **Versioned prompts.** The prompt template version is embedded in the prompt and stored on
+  `ai_analyses.prompt_template_version` (with `provider` and `model`) so any output can be
+  traced to the exact prompt that produced it.
+- **Untrusted text.** All extracted/AI text is sanitized (control characters removed, whitespace
+  collapsed) and length-limited by the schema; nothing from the fetched site or the AI is
+  executed.
+
+**Draft creation** (`apps/api/src/lib/import-draft.ts`):
+
+1. Validate the analysis (Zod) — invalid output creates nothing.
+2. Use `suggestedTemplate` only when it matches a known manifest (`law-firm`,
+   `accounting-firm`, `professional-services`); create/link the `template_versions` row and set
+   `sites.templateVersionId`.
+3. Set the site status to `draft` (a published site is never auto-unpublished — its imported
+   pages are drafts regardless).
+4. Write `design_tokens` (name `imported`) from `analysis.designTokens`.
+5. Create draft pages (unique paths, `status: 'draft'`) and blocks (section type allowlist →
+   validated via `validateBlock`, degrading to `text_section` on any mismatch).
+6. Never creates deployments and never touches `current.json` — imports cannot publish.
+
 ## Future upgrade paths
 
 | Today                                 | Planned upgrade                                  | Why                                                                                                 |
