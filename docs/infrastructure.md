@@ -156,8 +156,10 @@ All values are placeholders; real values come from environment variables.
 - **PLACEHOLDER — FC HTTP trigger signature.** `apps/api/src/function.ts` assumes Function
   Compute v3-style HTTP triggers passing a Web `Request` and expecting a `Response`. Confirm the
   chosen FC runtime/trigger before deployment and update `infra/alibaba/README.md` (rule 16).
-- **PLACEHOLDER — deployment tooling.** Serverless Devs (`s` CLI), Alibaba Cloud CLI, or
-  console-based deployment — finalized in the deployment phase (see docs/deployment.md).
+- **Deployment tooling — resolved.** Serverless Devs (`s` CLI) drives Function Compute
+  deployments from `infra/alibaba/s.yaml`; packaging scripts bundle each function with esbuild
+  (`infra/scripts/package-api.sh`, `package-builder.sh`); `infra/scripts/deploy.sh` orchestrates
+  check → dashboard upload → packaging → `s deploy` (docs/deployment.md).
 - **PLACEHOLDER — Docker host specifics.** The ECS instance size/image for the Docker host is
   decided during the deployment phase.
 - **PLACEHOLDER — OSS SDK.** The OSS backend in `packages/storage` will use the official Alibaba

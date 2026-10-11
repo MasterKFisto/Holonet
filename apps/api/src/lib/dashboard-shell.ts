@@ -23,11 +23,13 @@ export interface DashboardManifest {
 
 /** Default manifest location: <repo>/infra/alibaba/dashboard-assets.json. */
 export function defaultDashboardManifestPath(): string {
-  return resolve(
-    dirname(fileURLToPath(import.meta.url)),
-    '../../..',
-    'infra/alibaba/dashboard-assets.json',
-  );
+  // import.meta.url is empty in the CommonJS bundle used on Function Compute
+  // (esbuild cjs output); DASHBOARD_ASSET_MANIFEST_PATH is set there instead.
+  const base =
+    typeof import.meta !== 'undefined' && import.meta.url
+      ? dirname(fileURLToPath(import.meta.url))
+      : process.cwd();
+  return resolve(base, '../../..', 'infra/alibaba/dashboard-assets.json');
 }
 
 export function loadDashboardManifest(path: string): DashboardManifest | null {

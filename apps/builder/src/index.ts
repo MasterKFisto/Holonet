@@ -37,7 +37,12 @@ export async function runLocal(): Promise<void> {
   }
 }
 
-if (process.argv[1] && import.meta.url.endsWith(basename(process.argv[1]))) {
+// Direct-run guard: only run the CLI when this file is the entrypoint.
+// import.meta.url is unavailable in the CJS bundle used on Function Compute,
+// so the check degrades to a plain argv comparison there (the FC runtime
+// never passes index.js as argv[1], so the CLI stays silent).
+const selfUrl = typeof import.meta !== 'undefined' && import.meta.url ? import.meta.url : '';
+if (process.argv[1] && (selfUrl === '' || selfUrl.endsWith(basename(process.argv[1])))) {
   runLocal().catch((error) => {
     console.error('[holonet-builder] unexpected error:', error);
     process.exitCode = 1;

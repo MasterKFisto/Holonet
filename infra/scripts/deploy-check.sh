@@ -47,6 +47,7 @@ if [[ "${1:-}" == "--production" ]]; then
     VPC_ID
     VSWITCH_IDS
     SECURITY_GROUP_ID
+    DATABASE_URL
   )
 
   failed=0
@@ -57,6 +58,26 @@ if [[ "${1:-}" == "--production" ]]; then
       failed=1
     fi
   done
+
+  # The fixed hostname must never change (docs/deployment.md).
+  if [[ "${PUBLIC_BASE_URL:-https://holonet.section-zero.link}" != "https://holonet.section-zero.link" ]]; then
+    echo "ERROR: PUBLIC_BASE_URL must be exactly https://holonet.section-zero.link."
+    failed=1
+  fi
+
+  # Secrets must not be development placeholders.
+  if [[ "${AUTH_SECRET:-}" == "holonet-dev-secret"* ]]; then
+    echo "ERROR: AUTH_SECRET is still the development placeholder."
+    failed=1
+  fi
+
+  # Serverless Devs CLI + access profile (deploy path).
+  if command -v s >/dev/null 2>&1; then
+    echo "OK: Serverless Devs CLI ($(s --version 2>/dev/null || echo unknown))"
+  else
+    echo "WARN: Serverless Devs CLI ('s') not found — install it and add the"
+    echo "      'holonet' access profile before deploying (infra/alibaba/README.md)."
+  fi
 
   if [[ "$failed" -eq 0 ]]; then
     echo "OK: production environment variables present."

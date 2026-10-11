@@ -1,0 +1,163 @@
+# Holonet Function Compute deployment (Serverless Devs, edition 3).
+# Two functions: holonet-app (HTTP) and holonet-builder (event).
+# Real values come from environment variables at deploy time — never commit
+# AccessKeys, passwords, or DB credentials (rules 10/11). Copy
+# infra/alibaba/.env.deploy.example to infra/alibaba/.env.deploy and fill it
+# in; infra/scripts/deploy.sh exports it before running `s deploy`.
+# Access profile: `s config add --AccessKeyID <AK> --AccessKeySecret <SK> -a holonet`
+# (see infra/alibaba/README.md).
+edition: 3.0.0
+name: holonet-fc
+access: 'holonet'
+
+vars:
+  region: ${env('ALIBABA_CLOUD_REGION')}
+  accountId: ${env('ALIBABA_CLOUD_ACCOUNT_ID')}
+  roleArn: ${env('FC_ROLE_ARN')}
+  vpcId: ${env('VPC_ID')}
+  vSwitchIds: ${env('VSWITCH_IDS')}
+  securityGroupId: ${env('SECURITY_GROUP_ID')}
+  # Fixed public hostname (docs/deployment.md).
+  publicBaseUrl: https://holonet.section-zero.link
+  publicBucket: ${env('OSS_PUBLIC_BUCKET')}
+  privateBucket: ${env('OSS_PRIVATE_BUCKET')}
+  ossRegion: ${env('OSS_REGION')}
+  ossEndpoint: ${env('OSS_ENDPOINT', '')}
+  ossPublicBaseUrl: ${env('OSS_PUBLIC_BASE_URL', '')}
+  authSecret: ${env('AUTH_SECRET')}
+  databaseUrl: ${env('DATABASE_URL')}
+
+resources:
+  # ---------------------------------------------------------------- API ----
+  holonet-app:
+    component: fc3
+    actions:
+      pre-deploy:
+        - run: bash ../../infra/scripts/package-api.sh
+          path: ./
+    props:
+      region: ${vars.region}
+      functionName: holonet-app
+      description: Holonet API + dashboard shell + public form endpoint (HTTP).
+      runtime: nodejs20
+      code: ../../infra/alibaba/dist/holonet-app.zip
+      handler: index.handler
+      timeout: 30
+      memorySize: 512
+      cpu: 0.5
+      diskSize: 512
+      instanceConcurrency: 20
+      # The API must reach the public internet (site imports, AI endpoints)
+      # and the VPC (PostgreSQL in Docker).
+      internetAccess: true
+      role: ${vars.roleArn}
+      environmentVariables:
+        NODE_ENV: production
+        PUBLIC_BASE_URL: ${vars.publicBaseUrl}
+        DATABASE_URL: ${vars.databaseUrl}
+        AUTH_SECRET: ${vars.authSecret}
+        SESSION_COOKIE_NAME: holonet_session
+        SESSION_MAX_AGE_SECONDS: '604800'
+        COOKIE_SECURE: 'true'
+        CORS_ORIGINS: ${vars.publicBaseUrl}
+        STORAGE_PROVIDER: oss
+        OSS_REGION: ${vars.ossRegion}
+        OSS_PUBLIC_BUCKET: ${vars.publicBucket}
+        OSS_PRIVATE_BUCKET: ${vars.privateBucket}
+        OSS_ENDPOINT: ${vars.ossEndpoint}
+        OSS_PUBLIC_BASE_URL: ${vars.ossPublicBaseUrl}
+        # On FC the credentials come from the RAM role (STS); no AccessKeys.
+        OSS_ROLE_ARN: ${vars.roleArn}
+        # 'fc' calls holonet-builder (FcBuilderInvoker — PLACEHOLDER until the
+        # invoker SDK is wired; set 'local' for in-process builds meanwhile).
+        BUILDER_INVOKER: fc
+        FC_FUNCTION_NAME_BUILDER: holonet-builder
+        # Dashboard HTML shell: the asset manifest is baked into the code zip
+        # by package-api.sh and referenced relative to the code directory.
+        DASHBOARD_ASSET_MANIFEST_PATH: ./dashboard-assets.json
+        AI_PROVIDER: ${env('AI_PROVIDER', 'manual')}
+        AI_ENDPOINT: ${env('AI_ENDPOINT', '')}
+        AI_API_KEY: ${env('AI_API_KEY', '')}
+        AI_MODEL: ${env('AI_MODEL', 'holonet-heuristics')}
+      vpcConfig:
+        vpcId: ${vars.vpcId}
+        securityGroupId: ${vars.securityGroupId}
+        vSwitchIds:
+          - ${vars.vSwitchIds}
+      logConfig:
+        logBeginRule: DefaultRegex
+        project: ${env('SLS_PROJECT', 'holonet-sls')}
+        logstore: ${env('SLS_LOGSTORE', 'holonet-app')}
+        enableRequestMetrics: true
+        enableInstanceMetrics: true
+      triggers:
+        - triggerName: holonet-app-http
+          triggerType: http
+          description: Public HTTP trigger (all methods — dashboard, API, forms).
+          qualifier: LATEST
+          triggerConfig:
+            authType: anonymous
+            disableURLInternet: false
+            methods:
+              - GET
+              - POST
+              - PUT
+              - PATCH
+              - DELETE
+              - OPTIONS
+      # Custom domain placeholder: bind https://holonet.section-zero.link here
+      # once the domain is verified and the HTTPS certificate is issued — see
+      # infra/alibaba/README.md ("Custom domain and HTTPS certificate").
+      customDomains:
+        - domainName: holonet.section-zero.link
+          protocol: HTTP
+          routeConfigs:
+            - path: /*
+              serviceName: holonet-fc
+              functionName: holonet-app
+              qualifier: LATEST
+
+  # ------------------------------------------------------------- builder ---
+  holonet-builder:
+    component: fc3
+    actions:
+      pre-deploy:
+        - run: bash ../../infra/scripts/package-builder.sh
+          path: ./
+    props:
+      region: ${vars.region}
+      functionName: holonet-builder
+      description: Holonet static site builder (event function).
+      runtime: nodejs20
+      code: ../../infra/alibaba/dist/holonet-builder.zip
+      handler: index.handler
+      # Builds are slower than API calls: longer timeout + configurable memory.
+      timeout: 900
+      memorySize: ${env('FC_BUILDER_MEMORY', 1024)}
+      cpu: 1
+      diskSize: 1024
+      instanceConcurrency: 1
+      internetAccess: true
+      role: ${vars.roleArn}
+      environmentVariables:
+        NODE_ENV: production
+        PUBLIC_BASE_URL: ${vars.publicBaseUrl}
+        DATABASE_URL: ${vars.databaseUrl}
+        STORAGE_PROVIDER: oss
+        OSS_REGION: ${vars.ossRegion}
+        OSS_PUBLIC_BUCKET: ${vars.publicBucket}
+        OSS_PRIVATE_BUCKET: ${vars.privateBucket}
+        OSS_ENDPOINT: ${vars.ossEndpoint}
+        OSS_PUBLIC_BASE_URL: ${vars.ossPublicBaseUrl}
+        OSS_ROLE_ARN: ${vars.roleArn}
+      vpcConfig:
+        vpcId: ${vars.vpcId}
+        securityGroupId: ${vars.securityGroupId}
+        vSwitchIds:
+          - ${vars.vSwitchIds}
+      logConfig:
+        logBeginRule: DefaultRegex
+        project: ${env('SLS_PROJECT', 'holonet-sls')}
+        logstore: ${env('SLS_LOGSTORE', 'holonet-builder')}
+        enableRequestMetrics: true
+        enableInstanceMetrics: true

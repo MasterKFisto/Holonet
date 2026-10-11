@@ -22,11 +22,14 @@
     "db:seed": "pnpm --filter @holonet/db db:seed",
     "db:studio": "pnpm --filter @holonet/db db:studio",
     "dashboard:upload": "node infra/scripts/upload-dashboard-assets.mjs",
-    "deploy:check": "bash infra/scripts/deploy-check.sh"
+    "deploy:check": "bash infra/scripts/deploy-check.sh",
+    "deploy:package": "bash infra/scripts/package-api.sh && bash infra/scripts/package-builder.sh",
+    "deploy:fc": "bash infra/scripts/deploy.sh"
   },
   "devDependencies": {
     "@types/node": "^20.16.11",
     "ali-oss": "^6.20.0",
+    "esbuild": "^0.24.0",
     "eslint": "^9.13.0",
     "prettier": "^3.3.3",
     "typescript": "^5.6.3",

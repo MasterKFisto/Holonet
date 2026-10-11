@@ -29,8 +29,9 @@ bash infra/scripts/deploy-check.sh --production   # verifies tooling + productio
 ```
 
 `deploy-check.sh --production` fails if required variables are unset or still contain
-`<PLACEHOLDER>` values. RAM user credentials are checked in the deployer's environment (Alibaba
-Cloud CLI profile), not in the repository.
+`<PLACEHOLDER>` values, if `PUBLIC_BASE_URL` is not exactly `https://holonet.section-zero.link`,
+or if `AUTH_SECRET` is still the development placeholder. RAM user credentials are checked in
+the deployer's environment (Serverless Devs access profile), not in the repository.
 
 ## Build
 
@@ -41,10 +42,29 @@ pnpm build
 - `apps/api` → `apps/api/dist` (Hono app; entrypoint `dist/function.js` for FC, `dist/index.js`
   for a Node server). Local start currently runs the TypeScript source via tsx
   (`pnpm --filter api start`) because workspace packages are consumed as source.
-  > **PLACEHOLDER — FC bundling.** A bundling step (esbuild) that inlines workspace packages into
-  > the deployable function artifacts will be introduced in the deployment phase.
 - `apps/builder` → `apps/builder/dist` (build worker entrypoint).
 - `apps/dashboard` → `apps/dashboard/dist` (static SPA build, uploaded to the OSS public bucket).
+
+### Function Compute artifacts
+
+FC cannot resolve workspace links at runtime, so both functions are bundled into
+self-contained CommonJS zips before deployment:
+
+```bash
+pnpm deploy:package                     # or:
+bash infra/scripts/package-api.sh       # → infra/alibaba/dist/holonet-app.zip
+bash infra/scripts/package-builder.sh   # → infra/alibaba/dist/holonet-builder.zip
+```
+
+Each script esbuild-bundles the FC entrypoint (`apps/api/src/function.ts` /
+`apps/builder/src/handler.ts`) **with all workspace packages** (`--platform=node
+--target=node20 --format=cjs`, `proxy-agent` external), writes a CommonJS `package.json`, bakes
+`infra/alibaba/dashboard-assets.json` into the app zip when present, and zips the entrypoint at
+the archive root. Packaging needs no Alibaba credentials. Smoke-test the app bundle locally:
+
+```bash
+node -e "require('./infra/alibaba/dist/holonet-app/index.js').handler(new Request('http://localhost/api/health'), {}).then(async r => console.log(r.status, await r.text()))"
+```
 
 ## Dashboard asset publishing
 
@@ -136,9 +156,9 @@ pnpm --filter builder cli -- <siteId> <deploymentId>
    `infra/alibaba/oss/oss-bucket-policy.example.json` to the public bucket.
 3. **RAM** — create the deployment RAM user (least privilege) and the FC execution role
    (`FC_ROLE_ARN`) with `infra/alibaba/ram/holonet-fc-role-policy.example.json`.
-4. **Function Compute** — deploy `holonet-app` and `holonet-builder` per
-   `infra/alibaba/fc/fc-config.example.json`, with VPC attachment and production environment
-   variables injected at deploy time (never committed).
+4. **Function Compute** — deploy `holonet-app` and `holonet-builder` with Serverless Devs
+   (`infra/alibaba/s.yaml`), VPC attachment and production environment variables injected from
+   `infra/alibaba/.env.deploy` (never committed).
 5. **Custom domain** — bind https://holonet.section-zero.link to the `holonet-app` HTTP trigger.
 6. **Dashboard assets** — upload the Vite build to the OSS public bucket; the app function serves
    the dashboard HTML that references those assets.
@@ -147,10 +167,43 @@ pnpm --filter builder cli -- <siteId> <deploymentId>
 8. **End-to-end check** — walk the request flow in docs/architecture.md (dashboard → API → DB →
    builder → OSS → published site).
 
-> **PLACEHOLDER — tooling.** The exact deployment tool (Serverless Devs `s` CLI, Alibaba Cloud
-> CLI, or console) and the FC HTTP-trigger signature are finalized when Function Compute
-> deployment is implemented; assumptions are recorded in docs/infrastructure.md (rule 16). Until
-> then, deploy manually via the Alibaba Cloud console using the templates above.
+## Function Compute deployment (Serverless Devs)
+
+All FC configuration lives in **`infra/alibaba/s.yaml`** (Serverless Devs, edition 3):
+
+- **holonet-app** — HTTP function (`nodejs20`, handler `index.handler`, 512 MB / 30 s,
+  `internetAccess: true`): dashboard HTML shell, all API routes, the public form route, and
+  health checks. VPC config (`vpcConfig`) from `VPC_ID` / `VSWITCH_IDS` / `SECURITY_GROUP_ID`,
+  execution role `FC_ROLE_ARN`, HTTP trigger with `GET, POST, PUT, PATCH, DELETE, OPTIONS`
+  (anonymous), and a custom-domain placeholder for https://holonet.section-zero.link.
+- **holonet-builder** — event function (`nodejs20`, handler `index.handler`, 1024 MB
+  (override `FC_BUILDER_MEMORY`) / **900 s** timeout): builds static sites from
+  `{ siteId, deploymentId }` events and uploads releases to OSS. Same VPC + role as the app.
+- All environment values (buckets, region, role ARN, VPC ids, `DATABASE_URL`, `AUTH_SECRET`,
+  AI provider settings) come from `${env(...)}` placeholders — **real values are never
+  committed** (rules 10/11). `PUBLIC_BASE_URL` is pinned to
+  `https://holonet.section-zero.link`.
+
+### First deploy
+
+```bash
+npm install -g @serverless-devs/s
+s config add --AccessKeyID <RAM user AK> --AccessKeySecret <RAM user SK> -a holonet
+cp infra/alibaba/.env.deploy.example infra/alibaba/.env.deploy   # fill in placeholders
+bash infra/scripts/deploy.sh                                     # check → package → upload dashboard → s deploy
+```
+
+Single functions: `cd infra/alibaba && s holonet-app deploy` / `s holonet-builder deploy`.
+Teardown: `s remove -y`. Remote builder invocation:
+`s holonet-builder invoke --event '{"siteId":"…","deploymentId":"…"}'`. Full instructions,
+the deployment checklist, custom-domain/HTTPS-certificate notes, and the VPC/PostgreSQL notes
+are in `infra/alibaba/README.md`.
+
+> **PLACEHOLDER — builder invocation from the API.** `BUILDER_INVOKER=fc` (FcBuilderInvoker)
+> still returns 501 until the FC invoker SDK is wired; set `BUILDER_INVOKER=local` in s.yaml to
+> build in-process inside `holonet-app` until then.
+> **PLACEHOLDER — FC HTTP trigger signature.** `apps/api/src/function.ts` assumes FC HTTP
+> triggers pass a Web `Request` and expect a `Response`; confirm against the deployed runtime.
 
 ## Backups
 
