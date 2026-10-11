@@ -32,6 +32,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@holonet/builder':
+        specifier: workspace:*
+        version: link:../builder
       '@holonet/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -63,12 +66,24 @@ importers:
       '@holonet/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@holonet/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@holonet/security':
+        specifier: workspace:*
+        version: link:../../packages/security
       '@holonet/static-generator':
         specifier: workspace:*
         version: link:../../packages/static-generator
+      '@holonet/storage':
+        specifier: workspace:*
+        version: link:../../packages/storage
       '@holonet/templates':
         specifier: workspace:*
         version: link:../../packages/templates
+      drizzle-orm:
+        specifier: ^0.36.0
+        version: 0.36.4(@types/pg@8.23.1)(@types/react@18.3.31)(pg@8.23.1)(react@18.3.1)
     devDependencies:
       tsx:
         specifier: ^4.19.1

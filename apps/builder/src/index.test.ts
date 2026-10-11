@@ -1,24 +1,33 @@
 import { describe, expect, it } from 'vitest';
-import { professionalServicesTemplate } from '@holonet/templates';
-import { generateStaticSite } from '@holonet/static-generator';
-import { handleBuild } from './index.js';
+import type { HolonetDatabase } from '@holonet/db';
+import type { StorageProvider } from '@holonet/storage';
+import { buildSite } from './build.js';
+import { handler } from './handler.js';
 
 describe('@holonet/builder', () => {
-  it('returns a placeholder build result', async () => {
-    const result = await handleBuild({ workspaceId: 'ws-1', siteId: 'site-1' });
-    expect(result).toEqual({ ok: true, files: 0 });
+  it('rejects invalid build events in the FC handler', async () => {
+    await expect(handler({ siteId: 'not-a-uuid', deploymentId: 'nope' })).rejects.toThrow(
+      /invalid build event/,
+    );
   });
 
-  it('can invoke the static generator (workspace link check)', async () => {
-    const output = await generateStaticSite({
-      workspaceId: 'ws-1',
-      siteId: 'site-1',
-      siteName: 'Example Firm',
-      baseUrl: 'https://holonet.section-zero.link',
-      template: professionalServicesTemplate,
-      pages: [],
-    });
-    expect(output.files['index.html']).toBeTruthy();
-    expect(output.files['sitemap.xml']).toBeTruthy();
+  it('rejects builds for unknown deployments', async () => {
+    const db = {
+      query: { deployments: { findFirst: async () => undefined } },
+    } as unknown as HolonetDatabase;
+    const storage = {} as StorageProvider;
+    await expect(
+      buildSite(
+        {
+          siteId: '00000000-0000-4000-8000-000000000001',
+          deploymentId: '00000000-0000-4000-8000-000000000002',
+        },
+        {
+          db,
+          storage,
+          publicBaseUrl: 'https://holonet.section-zero.link',
+        },
+      ),
+    ).rejects.toThrow(/not found/);
   });
 });

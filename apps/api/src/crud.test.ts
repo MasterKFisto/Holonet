@@ -255,7 +255,7 @@ describe.skipIf(!hasDb)('holonet-api CRUD (integration)', () => {
     expect(publish.status).toBe(202);
     const deployment = ((await publish.json()) as { deployment: { id: string; status: string } })
       .deployment;
-    expect(deployment.status).toBe('queued');
+    expect(deployment.status).toBe('live');
 
     const siteRow = await db.query.sites.findFirst({ where: eq(sites.id, siteId) });
     expect(siteRow?.status).toBe('published');

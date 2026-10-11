@@ -1,5 +1,6 @@
 import type { HolonetDatabase } from '@holonet/db';
 import type { StorageProvider } from '@holonet/storage';
+import type { BuilderInvoker } from './builder-invoker.js';
 import type { Context } from 'hono';
 import { AppError } from './errors.js';
 import type { AppEnv } from '../types.js';
@@ -20,4 +21,13 @@ export function requireStorage(c: Context<AppEnv>): StorageProvider {
     throw new AppError('INVALID_CONFIG', 'storage provider is not configured', 500);
   }
   return storage;
+}
+
+/** Returns the request-scoped builder invoker, failing loudly when unconfigured. */
+export function requireBuilder(c: Context<AppEnv>): BuilderInvoker {
+  const builder = c.get('builder');
+  if (!builder) {
+    throw new AppError('INVALID_CONFIG', 'builder invoker is not configured', 500);
+  }
+  return builder;
 }

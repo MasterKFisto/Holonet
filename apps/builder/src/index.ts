@@ -1,34 +1,45 @@
 import { basename } from 'node:path';
-import type { SiteId, WorkspaceId } from '@holonet/core';
+import { closeDatabase } from '@holonet/db';
+import { buildSite, createBuildDepsFromEnv } from './build.js';
 
-export interface BuildRequest {
-  workspaceId: WorkspaceId;
-  siteId: SiteId;
-}
-
-export interface BuildResult {
-  ok: boolean;
-  files: number;
-}
+export * from './build.js';
+export * from './handler.js';
 
 /**
- * Entry point for the Holonet build worker, deployed as an Alibaba Cloud
- * Function Compute function.
+ * Local CLI for the build pipeline:
  *
- * PLACEHOLDER — the real pipeline arrives in a later phase:
- * 1. load site data via @holonet/db (scoped to request.workspaceId);
- * 2. generate static files via @holonet/static-generator;
- * 3. publish the artifacts via @holonet/storage (OSS in production).
+ *   pnpm --filter builder cli -- <siteId> <deploymentId>
+ *
+ * Loads the site from PostgreSQL, generates the static site, and uploads it
+ * to local storage (STORAGE_PROVIDER=fs) or OSS (STORAGE_PROVIDER=oss).
  */
-export async function handleBuild(_request: BuildRequest): Promise<BuildResult> {
-  return { ok: true, files: 0 };
-}
-
-/** Local runner: prints a placeholder message until the worker is implemented. */
 export async function runLocal(): Promise<void> {
-  console.log('[holonet-builder] worker placeholder — pipeline arrives in a later phase');
+  // pnpm may forward the '--' separator as an argument — strip it.
+  const [siteId, deploymentId] = process.argv.slice(2).filter((arg) => arg !== '--');
+  if (!siteId || !deploymentId) {
+    console.error('[holonet-builder] usage: builder <siteId> <deploymentId>');
+    process.exitCode = 1;
+    return;
+  }
+
+  const deps = createBuildDepsFromEnv();
+  try {
+    const result = await buildSite({ siteId, deploymentId }, deps);
+    console.log(
+      `[holonet-builder] build ${result.ok ? 'completed' : 'failed'}: ${result.deploymentId} (${result.files} files)`,
+    );
+    if (result.error) {
+      console.error(`[holonet-builder] ${result.error}`);
+      process.exitCode = 1;
+    }
+  } finally {
+    await closeDatabase(deps.db);
+  }
 }
 
 if (process.argv[1] && import.meta.url.endsWith(basename(process.argv[1]))) {
-  void runLocal();
+  runLocal().catch((error) => {
+    console.error('[holonet-builder] unexpected error:', error);
+    process.exitCode = 1;
+  });
 }

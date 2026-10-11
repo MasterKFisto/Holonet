@@ -1,5 +1,6 @@
 import type { HolonetDatabase } from '@holonet/db';
 import type { StorageProvider } from '@holonet/storage';
+import type { BuilderInvoker } from './lib/builder-invoker.js';
 import type { Env } from './config/env.js';
 
 /** The authenticated principal — set by requireUser once auth is implemented. */
@@ -33,5 +34,7 @@ export type AppEnv = {
     db?: HolonetDatabase;
     /** Request-scoped public-bucket storage provider (rule 19). */
     storage?: StorageProvider;
+    /** Request-scoped builder invoker (publish pipeline). */
+    builder?: BuilderInvoker;
   };
 };

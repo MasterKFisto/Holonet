@@ -82,6 +82,37 @@ At runtime the API reads the manifest via `DASHBOARD_ASSET_MANIFEST_PATH` (defau
 > the function artifact (or fetched from OSS at cold start) since the function image has no
 > repository checkout; the default local path is for development.
 
+## Publishing flow
+
+Publishing a site runs the build pipeline end to end:
+
+1. `POST /api/sites/:siteId/publish` creates a `deployments` row (queued) with
+   `storagePrefix = sites/{siteId}/releases/{deploymentId}` and a `site_build` job, then
+   invokes the builder.
+2. **Local development** (`BUILDER_INVOKER=local`, the default): the API runs the build
+   synchronously in-process via `LocalBuilderInvoker`.
+3. **Production** (`BUILDER_INVOKER=fc`): `FcBuilderInvoker` invokes the `holonet-builder`
+   Function Compute event function with the `{ siteId, deploymentId }` payload.
+   PLACEHOLDER — the FC SDK invocation is wired in the deployment phase; the builder's FC
+   entrypoint is `apps/builder/src/handler.ts`.
+4. The builder loads the site, pages, and blocks from PostgreSQL, validates the template
+   manifest (untrusted data, rule 17), generates the static site, and uploads it to
+   `sites/{siteId}/releases/{deploymentId}/…` in the OSS public bucket (HTML `no-cache`,
+   hashed assets immutable).
+5. The builder writes the current release pointer `sites/{siteId}/current.json` and marks the
+   deployment and its job `completed`, storing the **build logs** on the job `result`.
+   Failures mark both `failed` with the error message.
+6. `POST /api/sites/:siteId/rollback/:deploymentId` re-points `current.json` to the previous
+   deployment (its storage prefix) and records a live rollback deployment.
+
+The same pipeline runs as a local CLI:
+
+```bash
+pnpm --filter builder cli -- <siteId> <deploymentId>
+```
+
+(The CLI strips pnpm's `--` argument separator, so the command also works without it.)
+
 ## Production layout
 
 | Component                                          | Target                                                                              |

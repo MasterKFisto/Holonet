@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { Hono, type Context } from 'hono';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import { deployments, jobs, sites, templates, templateVersions } from '@holonet/db';
 import { z } from '@holonet/security';
-import { requireDb } from '../lib/db.js';
+import { requireBuilder, requireDb, requireStorage } from '../lib/db.js';
 import { AppError } from '../lib/errors.js';
 import { ipHashOf, recordAuditLog } from '../lib/security.js';
 import { requireSiteAccess } from '../middleware/access.js';
@@ -114,6 +114,7 @@ const deleteSiteHandler = async (c: Context<AppEnv>): Promise<Response> => {
 
 const publishSiteHandler = async (c: Context<AppEnv>): Promise<Response> => {
   const db = requireDb(c);
+  const builder = requireBuilder(c);
   const user = c.get('user')!;
   const siteId = c.get('siteId')!;
   const workspaceId = c.get('workspaceId')!;
@@ -126,11 +127,10 @@ const publishSiteHandler = async (c: Context<AppEnv>): Promise<Response> => {
       siteId,
       workspaceId,
       status: 'queued',
-      storagePrefix: `${workspaceId}/${siteId}/${deploymentId}`,
+      storagePrefix: `sites/${siteId}/releases/${deploymentId}`,
     })
     .returning();
 
-  // The builder worker (apps/builder) consumes this job in a later phase.
   await db.insert(jobs).values({
     workspaceId,
     type: 'site_build',
@@ -143,16 +143,22 @@ const publishSiteHandler = async (c: Context<AppEnv>): Promise<Response> => {
     .set({ status: 'published', publishedAt: new Date(), updatedAt: new Date() })
     .where(eq(sites.id, siteId));
 
+  // Local development: the build runs synchronously in-process (BUILDER_INVOKER).
+  // The builder marks the deployment (and its job) completed or failed.
+  await builder.invokeBuild(siteId, deploymentId);
+
+  const [current] = await db.select().from(deployments).where(eq(deployments.id, deploymentId));
+
   await recordAuditLog(db, {
     workspaceId,
     actorUserId: user.id,
     action: 'site_published',
     targetType: 'deployment',
     targetId: deploymentId,
-    metadata: { siteId },
+    metadata: { siteId, status: current?.status },
     ipHash: ipHashOf(clientIp(c)),
   });
-  return c.json({ deployment }, 202);
+  return c.json({ deployment: current ?? deployment }, 202);
 };
 
 const rollbackSiteHandler = async (c: Context<AppEnv>): Promise<Response> => {
@@ -192,16 +198,47 @@ const rollbackSiteHandler = async (c: Context<AppEnv>): Promise<Response> => {
     payload: { siteId, deploymentId: newId, rollbackTo: deploymentId },
   });
 
+  // Update the current release pointer to the previous deployment
+  // (sites/{siteId}/current.json).
+  const storage = requireStorage(c);
+  const current = {
+    deploymentId: newId,
+    storagePrefix: target.storagePrefix,
+    targetDeploymentId: deploymentId,
+    generatedAt: new Date().toISOString(),
+    note: `rollback to ${deploymentId}`,
+  };
+  await storage.putObject(
+    `sites/${siteId}/current.json`,
+    Buffer.from(JSON.stringify(current, null, 2)),
+    { contentType: 'application/json', cacheControl: 'no-cache' },
+  );
+
+  await db
+    .update(deployments)
+    .set({ status: 'live', finishedAt: new Date() })
+    .where(eq(deployments.id, newId));
+  await db
+    .update(jobs)
+    .set({
+      status: 'completed',
+      finishedAt: new Date(),
+      result: { note: 'rollback', targetDeploymentId: deploymentId },
+    })
+    .where(and(eq(jobs.type, 'site_build'), sql`${jobs.payload}->>'deploymentId' = ${newId}`));
+
   await recordAuditLog(db, {
     workspaceId,
     actorUserId: user.id,
     action: 'site_rollback',
     targetType: 'deployment',
     targetId: newId,
-    metadata: { siteId, rollbackTo: deploymentId },
+    metadata: { siteId, rollbackTo: deploymentId, newDeploymentId: newId },
     ipHash: ipHashOf(clientIp(c)),
   });
-  return c.json({ deployment }, 202);
+
+  const [live] = await db.select().from(deployments).where(eq(deployments.id, newId));
+  return c.json({ deployment: live ?? deployment }, 202);
 };
 
 const listDeploymentsHandler = async (c: Context<AppEnv>): Promise<Response> => {

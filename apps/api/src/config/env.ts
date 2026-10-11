@@ -27,6 +27,8 @@ export const envSchema = z.object({
   OSS_PUBLIC_BASE_URL: z.string().url().optional(),
   /** Path to the uploaded dashboard asset manifest (GET / shell). */
   DASHBOARD_ASSET_MANIFEST_PATH: z.string().min(1).optional(),
+  /** Builder invocation mode: 'local' (in-process) or 'fc' (Function Compute). */
+  BUILDER_INVOKER: z.enum(['local', 'fc']).default('local'),
 });
 
 export type Env = z.infer<typeof envSchema>;

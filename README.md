@@ -314,6 +314,7 @@ All configuration comes from environment variables — see `.env.example` (rules
 | `CORS_ORIGINS`                                 | Comma-separated origins allowed by CORS (local Vite dashboard by default)                           |
 | `RATE_LIMIT_WINDOW_SECONDS`                    | Rate limit window for `/api/*` (default 60)                                                         |
 | `RATE_LIMIT_MAX_REQUESTS`                      | Max requests per IP per window for `/api/*` (default 300)                                           |
+| `BUILDER_INVOKER`                              | Builder invocation: `local` (in-process, development) or `fc` (Function Compute)                    |
 | `PUBLIC_BASE_URL`                              | Fixed public base URL: `https://holonet.section-zero.link`                                          |
 | `DATABASE_URL`                                 | PostgreSQL connection string (local dev default; production uses the private VPC address)           |
 | `ALIBABA_CLOUD_REGION`                         | Alibaba Cloud region for Function Compute and OSS                                                   |
