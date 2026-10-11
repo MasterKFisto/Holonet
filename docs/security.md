@@ -110,6 +110,56 @@ Because it is public it is hardened against abuse:
 Implementation: `apps/api/src/routes/forms.ts`, `packages/static-generator/src/html.ts`
 (`formActionUrl`), `apps/api/src/middleware/access.ts` (`requireFormAccess`).
 
+### AI website import
+
+`POST /api/sites/:siteId/import` fetches an external website into the platform
+(foundation phase: fetch + analysis only). Because it makes server-side requests to
+user-supplied URLs it is treated as a high-risk SSRF surface and hardened accordingly:
+
+- **Ownership confirmation** — `ownershipConfirmed` must be `true` or the request is
+  rejected with `400` before any work happens.
+- **URL validation** (`packages/ai/src/url-guard.ts`) — only `http`/`https`; no
+  credentials in URLs; only default ports (80/443); syntactically valid domains with a
+  real TLD; hostname blocklist (`localhost`, `*.localhost`, cloud metadata hostnames).
+- **IP allowlist** — literal IPs and **every DNS answer** are checked against the public
+  unicast ranges: `localhost`, loopback (`127/8`, `::1`), private (`10/8`, `172.16/12`,
+  `192.168/16`, `fc00::/7`), link-local (`169.254/16` — which covers the cloud metadata
+  endpoint `169.254.169.254` — and `fe80::/10`), CGNAT (`100.64/10`), multicast,
+  TEST-NET, and reserved ranges are all refused. DNS is re-resolved and re-validated for
+  every redirect hop, so redirects cannot smuggle requests to internal hosts.
+- **Bounded fetcher** (`packages/ai/src/fetcher.ts`) — max 3 pages per import, 5 MiB per
+  page, 20 s per request (AbortSignal timeout), fixed user agent `HolonetImporter/0.1`,
+  HTML content types only, no JavaScript execution, redirects followed manually with
+  per-hop re-validation.
+- **No credential support** — the importer never sends cookies, authorization headers,
+  or any credentials. `401`/`403` responses abort the import (`auth-required`); `402`
+  responses abort as `paywall` — paywalls are never bypassed.
+- **robots.txt** — checked where practical; paths disallowed for `User-agent: *` refuse
+  the import (`robots-disallowed` → job status `rejected`).
+- **Job lifecycle** — every attempt creates an `import_jobs` row that transitions
+  `pending → fetching → analyzing → completed | failed | rejected`; policy violations
+  (invalid URL, blocked host, robots) land as `rejected`, runtime failures as `failed`,
+  both with `error_message` and `finished_at` set — failures are stored safely, never
+  half-published.
+- **Raw content stays private** — fetched HTML is stored only in the **private** storage
+  bucket under `imports/{workspaceId}/{importJobId}/raw/` (with a manifest). It is never
+  written to the public bucket and no public URL is issued for it. Admin-only access to
+  job metadata is via `GET /api/admin/import-jobs` (`requireAdmin`).
+- **Untrusted content (rule 17)** — fetched HTML and AI output are untrusted data;
+  `ai_analyses.output` is JSONB that downstream rendering must escape like any visitor
+  content. The heuristic analyzer only extracts plain text/titles/headings.
+- **Nothing is published automatically** — the importer creates no deployments, touches
+  no `current.json`, and never publishes. Imported content may only ever become **draft
+  pages** (`pages.status = 'draft'`), in the content-generation phase.
+- **Audit** — every import attempt is recorded in `audit_logs` (`site_import`) with the
+  outcome (`completed` | `rejected` | `failed`) and hashed IP.
+- **Limits** — the API runs imports inline within the request (bounded by the fetcher
+  limits above); production can move this into the `jobs` queue on Function Compute
+  without changing the route contract.
+
+Implementation: `apps/api/src/routes/sites.ts` (`importSiteHandler`),
+`apps/api/src/routes/admin.ts`, `packages/ai/src/{url-guard,fetcher,analyze}.ts`.
+
 ### Password reset
 
 - `POST /api/auth/forgot-password` always returns the same success response — **whether or not

@@ -29,6 +29,22 @@ export const envSchema = z.object({
   DASHBOARD_ASSET_MANIFEST_PATH: z.string().min(1).optional(),
   /** Builder invocation mode: 'local' (in-process) or 'fc' (Function Compute). */
   BUILDER_INVOKER: z.enum(['local', 'fc']).default('local'),
+  /**
+   * AI model label recorded on ai_analyses rows (foundation uses the
+   * built-in heuristics model; external AI providers arrive later).
+   */
+  AI_MODEL: z.string().min(1).default('holonet-heuristics'),
+  /**
+   * Website importer limits (pages, bytes, timeout). Kept conservative:
+   * the importer fetches at most 3 pages of at most 5 MiB each, 20 s each.
+   */
+  IMPORT_MAX_PAGES: z.coerce.number().int().min(1).max(10).default(3),
+  IMPORT_MAX_PAGE_BYTES: z.coerce
+    .number()
+    .int()
+    .min(1024)
+    .default(5 * 1024 * 1024),
+  IMPORT_TIMEOUT_MS: z.coerce.number().int().min(1000).max(60_000).default(20_000),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -28,10 +28,14 @@ export function createApp(
   db?: HolonetDatabase,
   storage?: StorageProvider,
   builder?: BuilderInvoker,
+  privateStorage?: StorageProvider,
 ): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
   const database = db ?? (env.DATABASE_URL ? createDatabase(env.DATABASE_URL) : undefined);
   const storageProvider = storage ?? createStorageProviderFromEnv('public');
+  // Raw imported website content is private by design — never in the
+  // public bucket (rule 19, docs/security.md).
+  const privateStorageProvider = privateStorage ?? createStorageProviderFromEnv('private');
   const builderInvoker =
     builder ??
     createBuilderInvoker(env.BUILDER_INVOKER, {
@@ -47,6 +51,7 @@ export function createApp(
       c.set('db', database);
     }
     c.set('storage', storageProvider);
+    c.set('privateStorage', privateStorageProvider);
     c.set('builder', builderInvoker);
     await next();
   });

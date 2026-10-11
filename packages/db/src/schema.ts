@@ -637,7 +637,8 @@ export const jobs = pgTable(
 
 /* ------------------------------ import_jobs -------------------------- */
 
-export type ImportJobStatus = 'pending' | 'processing' | 'completed' | 'failed';
+export type ImportJobStatus =
+  'pending' | 'fetching' | 'analyzing' | 'completed' | 'failed' | 'rejected';
 
 export const importJobs = pgTable(
   'import_jobs',
@@ -661,7 +662,7 @@ export const importJobs = pgTable(
   (table) => [
     check(
       'import_jobs_status_check',
-      sql`${table.status} in ('pending', 'processing', 'completed', 'failed')`,
+      sql`${table.status} in ('pending', 'fetching', 'analyzing', 'completed', 'failed', 'rejected')`,
     ),
     index('import_jobs_workspace_idx').on(table.workspaceId),
     index('import_jobs_site_idx').on(table.siteId),

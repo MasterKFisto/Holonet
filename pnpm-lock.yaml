@@ -32,6 +32,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@holonet/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
       '@holonet/builder':
         specifier: workspace:*
         version: link:../builder

@@ -23,6 +23,15 @@ export function requireStorage(c: Context<AppEnv>): StorageProvider {
   return storage;
 }
 
+/** Returns the request-scoped private-bucket storage provider (imports, backups). */
+export function requirePrivateStorage(c: Context<AppEnv>): StorageProvider {
+  const storage = c.get('privateStorage');
+  if (!storage) {
+    throw new AppError('INVALID_CONFIG', 'private storage provider is not configured', 500);
+  }
+  return storage;
+}
+
 /** Returns the request-scoped builder invoker, failing loudly when unconfigured. */
 export function requireBuilder(c: Context<AppEnv>): BuilderInvoker {
   const builder = c.get('builder');

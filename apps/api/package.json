@@ -14,6 +14,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@holonet/ai": "workspace:*",
     "@holonet/builder": "workspace:*",
     "@holonet/core": "workspace:*",
     "@holonet/db": "workspace:*",

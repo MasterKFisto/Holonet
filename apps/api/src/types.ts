@@ -34,6 +34,8 @@ export type AppEnv = {
     db?: HolonetDatabase;
     /** Request-scoped public-bucket storage provider (rule 19). */
     storage?: StorageProvider;
+    /** Request-scoped private-bucket storage provider (imports, backups). */
+    privateStorage?: StorageProvider;
     /** Request-scoped builder invoker (publish pipeline). */
     builder?: BuilderInvoker;
   };

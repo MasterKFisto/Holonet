@@ -233,6 +233,16 @@ curl -i http://localhost:3000/api/workspaces   # 401 UNAUTHORIZED (auth required
   release under `sites/{siteId}/releases/{deploymentId}/…`, and points `current.json` at the new
   release; `POST /api/sites/:siteId/rollback` repoints the current release at the previous one.
   Builds run as `site_build` jobs with logs recorded on the job result.
+- **Website import (AI foundation):** `POST /api/sites/:siteId/import` (requires ownership
+  confirmation) creates an `import_jobs` row and runs the SSRF-safe fetcher from
+  `packages/ai`: public http(s) URLs only (localhost, private/link-local IPs, metadata
+  endpoints, credential URLs, and non-default ports are rejected), max 3 pages / 5 MiB / 20 s,
+  fixed user agent `HolonetImporter/0.1`, no credentials, no JavaScript, robots.txt respected,
+  redirects re-validated per hop. Raw HTML is stored only in the **private** bucket under
+  `imports/{workspaceId}/{importJobId}/raw/`; the job transitions
+  `pending → fetching → analyzing → completed | failed | rejected`, records an `ai_analyses`
+  row, and never publishes anything (draft pages only, in the content-generation phase).
+  Admins inspect jobs via `GET /api/admin/import-jobs`. Full design: docs/security.md.
 - **Authorization:** `requireUser`, `requireAdmin`, and `requireWorkspaceAccess` are real
   middleware — workspace routes already enforce tenant isolation (rule 18).
 - **Error shape** (stable — clients rely on `code`, never on `message`):

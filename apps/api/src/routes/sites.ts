@@ -1,9 +1,19 @@
 import { randomUUID } from 'node:crypto';
+import { lookup } from 'node:dns/promises';
 import { Hono, type Context } from 'hono';
 import { and, desc, eq, sql } from 'drizzle-orm';
-import { deployments, jobs, sites, templates, templateVersions } from '@holonet/db';
+import { ImportError, importWebsite } from '@holonet/ai';
+import {
+  aiAnalyses,
+  deployments,
+  importJobs,
+  jobs,
+  sites,
+  templates,
+  templateVersions,
+} from '@holonet/db';
 import { z } from '@holonet/security';
-import { requireBuilder, requireDb, requireStorage } from '../lib/db.js';
+import { requireBuilder, requireDb, requirePrivateStorage, requireStorage } from '../lib/db.js';
 import { AppError } from '../lib/errors.js';
 import { ipHashOf, recordAuditLog } from '../lib/security.js';
 import { requireSiteAccess } from '../middleware/access.js';
@@ -250,6 +260,214 @@ const listDeploymentsHandler = async (c: Context<AppEnv>): Promise<Response> => 
   return c.json({ deployments: rows });
 };
 
+/*
+ * Website import (AI importer foundation) — POST /api/sites/:siteId/import.
+ *
+ * Flow: validate request → create import_jobs (pending) → fetching (SSRF-safe
+ * bounded fetch, robots.txt respected) → raw HTML to the PRIVATE bucket under
+ * imports/{workspaceId}/{importJobId}/raw/ → analyzing (ai_analyses row) →
+ * completed. Failures land on the job as `failed`; policy violations (invalid
+ * URL, blocked host, robots disallowed) as `rejected`. Nothing is ever
+ * published automatically — imported content becomes draft pages only, in a
+ * later phase (docs/security.md).
+ */
+
+const IMPORT_USER_AGENT = 'HolonetImporter/0.1';
+
+/** ImportError codes that are policy rejections rather than runtime failures. */
+const REJECTED_CODES = new Set(['invalid-url', 'blocked-host', 'robots-disallowed']);
+
+const importSiteSchema = z.object({
+  sourceUrl: z.string().trim().min(1).max(2000),
+  ownershipConfirmed: z.boolean(),
+});
+
+async function updateImportJob(
+  db: ReturnType<typeof requireDb>,
+  jobId: string,
+  patch: Record<string, unknown>,
+): Promise<void> {
+  await db
+    .update(importJobs)
+    .set({ ...patch, updatedAt: new Date() })
+    .where(eq(importJobs.id, jobId));
+}
+
+const importSiteHandler = async (c: Context<AppEnv>): Promise<Response> => {
+  let body: z.infer<typeof importSiteSchema>;
+  try {
+    body = importSiteSchema.parse(await c.req.json());
+  } catch {
+    throw new AppError(
+      'VALIDATION_ERROR',
+      'request body must be { sourceUrl: string, ownershipConfirmed: boolean }',
+      400,
+    );
+  }
+  // 1. Ownership confirmation is mandatory.
+  if (body.ownershipConfirmed !== true) {
+    throw new AppError(
+      'VALIDATION_ERROR',
+      'ownership confirmation is required before importing a website',
+      400,
+    );
+  }
+
+  const db = requireDb(c);
+  const user = c.get('user')!;
+  const siteId = c.get('siteId')!;
+  const workspaceId = c.get('workspaceId')!;
+  const privateStorage = requirePrivateStorage(c);
+  const env = c.get('env');
+
+  // 2. Create the import job (pending) — every attempt is auditable.
+  const [job] = await db
+    .insert(importJobs)
+    .values({
+      workspaceId,
+      siteId,
+      sourceUrl: body.sourceUrl,
+      status: 'pending',
+      aiProvider: 'heuristics',
+    })
+    .returning();
+
+  const finish = async (
+    status: 'completed' | 'failed' | 'rejected',
+    patch: { errorMessage?: string; stats?: Record<string, unknown> },
+  ): Promise<void> => {
+    await updateImportJob(db, job!.id, { ...patch, status, finishedAt: new Date() });
+  };
+
+  const auditImport = async (outcome: string): Promise<void> => {
+    await recordAuditLog(db, {
+      workspaceId,
+      actorUserId: user.id,
+      action: 'site_import',
+      targetType: 'site',
+      targetId: siteId,
+      metadata: { importJobId: job!.id, sourceUrl: body.sourceUrl, outcome },
+      ipHash: ipHashOf(clientIp(c)),
+    });
+  };
+
+  try {
+    // 3. Fetching — SSRF-safe, bounded, credential-free (docs/security.md).
+    await updateImportJob(db, job!.id, { status: 'fetching', startedAt: new Date() });
+
+    const result = await importWebsite(
+      body.sourceUrl,
+      {
+        resolveHost: async (hostname) => {
+          try {
+            const entries = await lookup(hostname, { all: true });
+            return entries.map((entry) => entry.address);
+          } catch {
+            // DNS failures surface as ImportError('unresolvable-host') upstream,
+            // so the job ends `failed` instead of crashing the request.
+            return [];
+          }
+        },
+        fetchUrl: async (url, init) => {
+          const response = await fetch(url, {
+            redirect: 'manual', // the importer re-validates every hop itself
+            signal: init?.signal,
+            headers: {
+              'user-agent': IMPORT_USER_AGENT,
+              accept: init?.headers?.['accept'] ?? 'text/html',
+            },
+          });
+          return {
+            status: response.status,
+            headers: { get: (name: string) => response.headers.get(name) },
+            text: async () => response.text(),
+            url: response.url,
+          };
+        },
+      },
+      {
+        maxPages: env.IMPORT_MAX_PAGES,
+        maxPageBytes: env.IMPORT_MAX_PAGE_BYTES,
+        timeoutMs: env.IMPORT_TIMEOUT_MS,
+        userAgent: IMPORT_USER_AGENT,
+      },
+    );
+
+    // 4. Raw fetched data goes to the PRIVATE bucket only (never public).
+    const rawKeys: string[] = [];
+    const rawManifest = {
+      sourceUrl: body.sourceUrl,
+      fetchedAt: new Date().toISOString(),
+      pages: result.pages.map((page) => ({
+        url: page.url,
+        status: page.status,
+        contentType: page.contentType,
+        bytes: Buffer.byteLength(page.html, 'utf8'),
+      })),
+      robots: result.robots,
+    };
+    for (const [index, page] of result.pages.entries()) {
+      const key = `imports/${workspaceId}/${job!.id}/raw/page-${index + 1}.html`;
+      await privateStorage.putObject(key, Buffer.from(page.html, 'utf8'), {
+        contentType: 'text/html',
+      });
+      rawKeys.push(key);
+    }
+    await privateStorage.putObject(
+      `imports/${workspaceId}/${job!.id}/raw/manifest.json`,
+      Buffer.from(JSON.stringify(rawManifest, null, 2)),
+      { contentType: 'application/json' },
+    );
+    rawKeys.push(`imports/${workspaceId}/${job!.id}/raw/manifest.json`);
+
+    // 5. Analyzing — ai_analyses usage. Output is untrusted data (rule 17).
+    await updateImportJob(db, job!.id, { status: 'analyzing' });
+    await db.insert(aiAnalyses).values({
+      workspaceId,
+      importJobId: job!.id,
+      siteId,
+      model: env.AI_MODEL,
+      input: { sourceUrl: body.sourceUrl, pageCount: result.pages.length },
+      output: { ...result.analysis },
+      tokenUsage: {},
+      status: 'completed',
+    });
+
+    // 6. Nothing is published automatically. Imported content may only ever
+    //    become draft pages (the content-generation phase); the analysis is
+    //    the foundation artifact.
+    await finish('completed', {
+      stats: {
+        pagesFetched: result.pages.length,
+        robots: result.robots,
+        rawKeys,
+        suggestedTemplate: result.analysis.suggestedTemplate,
+      },
+    });
+  } catch (error) {
+    if (error instanceof ImportError) {
+      const terminalStatus = REJECTED_CODES.has(error.code) ? 'rejected' : 'failed';
+      await finish(terminalStatus, {
+        errorMessage: error.message,
+        stats: { errorCode: error.code },
+      });
+      await auditImport(terminalStatus);
+      const [finalJob] = await db.select().from(importJobs).where(eq(importJobs.id, job!.id));
+      return c.json({ importJob: finalJob }, 200);
+    }
+    // Unexpected failure: the job is marked failed (safe to inspect) and the
+    // error surfaces through the global error handler.
+    await finish('failed', { errorMessage: 'import failed unexpectedly' });
+    await auditImport('failed');
+    throw error;
+  }
+
+  await auditImport('completed');
+
+  const [finalJob] = await db.select().from(importJobs).where(eq(importJobs.id, job!.id));
+  return c.json({ importJob: finalJob }, 200);
+};
+
 export const siteRoutes = new Hono<AppEnv>()
   .get('/api/sites/:siteId', requireUser, requireSiteAccess(), getSiteHandler)
   .patch('/api/sites/:siteId', requireUser, requireSiteAccess(), updateSiteHandler)
@@ -261,4 +479,5 @@ export const siteRoutes = new Hono<AppEnv>()
     requireSiteAccess(),
     rollbackSiteHandler,
   )
-  .get('/api/sites/:siteId/deployments', requireUser, requireSiteAccess(), listDeploymentsHandler);
+  .get('/api/sites/:siteId/deployments', requireUser, requireSiteAccess(), listDeploymentsHandler)
+  .post('/api/sites/:siteId/import', requireUser, requireSiteAccess(), importSiteHandler);
