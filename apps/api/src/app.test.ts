@@ -33,11 +33,11 @@ describe('holonet-api health', () => {
     expect(body.requestId).toBeTruthy();
   });
 
-  it('returns structured 501 responses for skeleton routes', async () => {
-    const res = await app.request('/api/sites/site-1/forms');
-    expect(res.status).toBe(501);
+  it('keeps remaining skeleton routes behind the auth guard (401 without a session)', async () => {
+    const res = await app.request('/api/admin/workspaces');
+    expect(res.status).toBe(401);
     const body = await errorBodyOf(res);
-    expect(body.error.code).toBe('NOT_IMPLEMENTED');
+    expect(body.error.code).toBe('UNAUTHORIZED');
   });
 
   it('guards workspace routes (401 without a session)', async () => {
@@ -71,6 +71,7 @@ describe('holonet-api health', () => {
       ['GET', '/api/sites/site-1/deployments'],
       ['GET', '/api/sites/site-1/forms'],
       ['GET', '/api/forms/form-1/submissions'],
+      ['POST', '/forms/11111111-1111-4111-8111-111111111111'],
       ['POST', '/api/auth/register'],
       ['POST', '/api/auth/login'],
       ['POST', '/api/auth/logout'],

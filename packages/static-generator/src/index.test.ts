@@ -95,8 +95,10 @@ describe('@holonet/static-generator', () => {
     expect(home).toContain('<h1>Trusted expertise</h1>');
     expect(home).toContain('<a class="btn" href="/contact/">Start</a>');
     expect(home).toContain(
-      '<form method="post" action="/api/forms/submit" data-form-id="form-123">',
+      `<form method="post" action="${BASE_URL}/forms/form-123" data-form-id="form-123">`,
     );
+    // Honeypot field for bot protection (hidden by CSS).
+    expect(home).toContain('name="website"');
     expect(home).toContain('>Send message</button>');
 
     const about = output.files['about/index.html']!;

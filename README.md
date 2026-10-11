@@ -207,25 +207,38 @@ Quick checks:
 ```bash
 curl http://localhost:3000/health
 curl http://localhost:3000/api/health
-curl -i http://localhost:3000/api/workspaces   # 501 NOT_IMPLEMENTED (skeleton phase)
+curl -i http://localhost:3000/api/workspaces   # 401 UNAUTHORIZED (auth required)
 ```
 
 - **Skeleton status:** `/health` and `/api/health` are fully implemented, as are all
   authentication routes (`register`, `login`, `logout`, `forgot-password`, `reset-password`,
-  `/api/me`). Every other route from the API plan exists with structured `501 NOT_IMPLEMENTED`
-  responses until its phase lands.
+  `/api/me`), the site/workspace/page/block CRUD routes, publishing (`publish`, `rollback`),
+  and the public form-submission endpoints. Every other route from the API plan exists with
+  structured `501 NOT_IMPLEMENTED` responses until its phase lands.
 - **Authentication:** scrypt password hashing (constant-time verify), jose HS256 session JWTs in
   the HTTP-only `holonet_session` cookie (Secure in production, `SameSite=Lax`, revoked by
   `users.token_version` on logout/reset), double-submit CSRF protection (`holonet_csrf` +
   `X-CSRF-Token`), login rate limiting (5 failures / 15 min per IP+email), hashed single-use
   password-reset tokens (1 h expiry), and `security_events` / `audit_logs` records for every
   login/register/logout/reset event. Full design: docs/security.md.
+- **Forms (public submissions):** `POST /forms/:formId` accepts JSON or form-encoded visitor
+  submissions from published static sites. It is CSRF-exempt by design and hardened instead with
+  a honeypot field, per-IP+form rate limiting (10/min), 64 KiB payload caps, generic success
+  responses (spam, rate-limited, and unknown forms are silently discarded), hashed IP storage,
+  `security_events` escalation for repeated abuse, and a `form_notification` webhook job
+  placeholder. Authenticated members browse submissions via `GET /api/sites/:siteId/forms` and
+  `GET /api/forms/:formId/submissions`. Full design: docs/security.md ("Public form submissions").
+- **Publishing:** `POST /api/sites/:siteId/publish` builds the site with the static generator
+  (in-process by default, Function Compute via `BUILDER_INVOKER=fc` placeholder), uploads the
+  release under `sites/{siteId}/releases/{deploymentId}/…`, and points `current.json` at the new
+  release; `POST /api/sites/:siteId/rollback` repoints the current release at the previous one.
+  Builds run as `site_build` jobs with logs recorded on the job result.
 - **Authorization:** `requireUser`, `requireAdmin`, and `requireWorkspaceAccess` are real
   middleware — workspace routes already enforce tenant isolation (rule 18).
 - **Error shape** (stable — clients rely on `code`, never on `message`):
   `{ "error": { "code": "NOT_FOUND", "message": "…" }, "requestId": "…" }`. Codes:
   `BAD_REQUEST`, `VALIDATION_ERROR`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`,
-  `RATE_LIMITED`, `NOT_IMPLEMENTED`, `INVALID_CONFIG`, `INTERNAL_ERROR`.
+  `RATE_LIMITED`, `NOT_IMPLEMENTED`, `INVALID_CONFIG`, `PAYLOAD_TOO_LARGE`, `INTERNAL_ERROR`.
 - **Middleware:** request IDs (`X-Request-Id`, client-supplied when safe), structured request
   logging, security headers, CORS for the Vite dashboard (`CORS_ORIGINS`, default
   `http://localhost:5173`), per-IP rate limiting on `/api/*`
@@ -298,10 +311,11 @@ pnpm --filter dashboard preview    # preview the production build
   `/sites/:siteId/pages`, `/sites/:siteId/pages/:pageId`, `/sites/:siteId/theme`,
   `/sites/:siteId/publish`, `/sites/:siteId/forms`, `/sites/:siteId/import`, `/settings`,
   `/admin` — routing and the professional layout (sidebar, top bar with workspace selector
-  placeholder) are in place; feature pages are placeholders until their phases land.
+  placeholder) are in place; most feature pages are placeholders until their phases land.
 - **API client:** `src/lib/api.ts` (fetch, cookies, CSRF header) with typed TanStack Query
-  hooks for health, me, workspaces, and sites (`src/api/hooks.ts`). Login/register forms call
-  the real auth endpoints.
+  hooks for health, me, workspaces, sites, forms, and form submissions
+  (`src/api/hooks.ts`). Login/register forms call the real auth endpoints, and
+  `/sites/:siteId/forms` is a live submission inbox (form list + submission detail).
 
 ## 5. Environment variables
 

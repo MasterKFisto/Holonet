@@ -1,6 +1,7 @@
 import { parseTemplateManifest, type TemplateManifest } from '@holonet/templates';
 import {
   escapeHtml,
+  formActionUrl,
   pageFileKey,
   pageUrl,
   renderPage,
@@ -138,5 +139,5 @@ export async function generateStaticSite(input: HolonetSiteSnapshot): Promise<Ge
   return { files, manifest };
 }
 
-export { escapeHtml, pageFileKey, pageUrl, renderPage };
+export { escapeHtml, formActionUrl, pageFileKey, pageUrl, renderPage };
 export type { SiteShell, SnapshotPage, SnapshotPageBlock } from './html.js';

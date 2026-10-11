@@ -57,6 +57,9 @@ Holonet is security-first. This document records the standing security posture; 
   token); state-changing requests (`POST`/`PUT`/`PATCH`/`DELETE`) must echo it in the
   `X-CSRF-Token` header. Cross-origin attackers cannot read the cookie, so they cannot forge the
   header. Combined with `SameSite=Lax` this blocks CSRF across all state-changing API routes.
+- **CSRF-exempt public endpoints:** `POST /forms/:formId` is intentionally exempt (static sites
+  submit cross-origin and cannot carry the token). It carries its own abuse protection instead —
+  see "Public form submissions" below.
 - Implementation: `apps/api/src/middleware/csrf.ts`.
 
 ### Login protection
@@ -70,6 +73,42 @@ Holonet is security-first. This document records the standing security posture; 
 - **Audit logs:** `user_registered`, `user_logged_in`, `user_logged_out`,
   `password_reset_requested`, and `password_reset_completed` are written to `audit_logs`.
 - Implementation: `apps/api/src/middleware/login-rate-limit.ts`, `apps/api/src/lib/security.ts`.
+
+### Public form submissions
+
+`POST /forms/:formId` is the one fully public, cross-origin state-changing endpoint. Published
+static sites POST visitor submissions to `https://holonet.section-zero.link/forms/{formId}`.
+Because it is public it is hardened against abuse:
+
+- **Input validation** — the form ID must be a UUID; payloads are accepted as JSON or
+  `application/x-www-form-urlencoded` only.
+- **Payload size caps** — 64 KiB per submission (`413 PAYLOAD_TOO_LARGE` above that), max 50
+  fields, max 10 KiB per field value. Oversized or malformed bodies are rejected before any
+  storage.
+- **Honeypot field** — generated forms include a hidden `website` input (CSS-positioned off
+  screen, `tabindex="-1"`, `autocomplete="off"`). Submissions with a non-empty honeypot are
+  **silently discarded** — the response is identical to a real success.
+- **Rate limiting by IP + form ID** — 10 submissions per minute per IP per form. Tripped limits
+  are also silently discarded (generic success) so the limit is not discoverable.
+- **Generic responses** — `{ "ok": true }` for stored submissions, discarded spam, rate-limited
+  requests, and unknown-but-well-formed form IDs alike; a malformed form ID returns a generic
+  `404 NOT_FOUND`. Form existence and spam handling are never revealed.
+- **Storage** — submissions are stored in `form_submissions` (PostgreSQL, behind the API — not
+  in any publicly readable bucket). Raw client IPs are never stored; only a SHA-256 hash
+  (`ip_hash`) for abuse analysis.
+- **No public exposure** — `GET /api/forms/:formId/submissions` requires an authenticated
+  workspace member (via form → site → workspace access control); non-members receive `404`.
+- **Security events for repeated abuse** — honeypot-triggered spam records
+  `form_spam_detected`; rate-limit blocks record `form_rate_limited` (severity `warning`) on
+  the first block and every 5th block thereafter, so repeated abuse escalates in the security
+  event stream.
+- **Webhook placeholder** — when a form sets `notification_email`, a `form_notification` job is
+  enqueued in the `jobs` table for future delivery; no external webhook is invoked yet.
+- **Limits** — the IP+form limiter is in-memory per instance; like the login limiter it moves to
+  a shared store (Redis) for multi-instance Function Compute deployments.
+
+Implementation: `apps/api/src/routes/forms.ts`, `packages/static-generator/src/html.ts`
+(`formActionUrl`), `apps/api/src/middleware/access.ts` (`requireFormAccess`).
 
 ### Password reset
 

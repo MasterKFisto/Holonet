@@ -49,6 +49,18 @@ export function pageUrl(baseUrl: string, path: string): string {
   return path === '/' ? `${root}/` : `${root}${path}/`;
 }
 
+/**
+ * The absolute submission endpoint for a published form.
+ *
+ * Generated static sites submit forms to `${baseUrl}/forms/${formId}` —
+ * the public, abuse-protected API endpoint (see docs/security.md). When no
+ * formId is known yet the helper falls back to the bare `/forms/` path.
+ */
+export function formActionUrl(baseUrl: string, formId?: string): string {
+  const root = baseUrl.replace(/\/+$/, '');
+  return formId ? `${root}/forms/${formId}` : `${root}/forms/`;
+}
+
 /** File key for a page ('/about' → 'about/index.html', '/' → 'index.html'). */
 export function pageFileKey(path: string): string {
   return path === '/' ? 'index.html' : `${path.replace(/^\/+/, '')}/index.html`;
@@ -163,11 +175,14 @@ function renderFaq(props: Record<string, unknown>): string {
 </section>`;
 }
 
-function renderContactForm(props: Record<string, unknown>): string {
+function renderContactForm(props: Record<string, unknown>, baseUrl: string): string {
   const formId = stringProp(props, 'formId');
   return `<section class="contact-form">
   ${stringProp(props, 'title') ? `<h2>${escapeHtml(stringProp(props, 'title'))}</h2>` : ''}
-  <form method="post" action="/api/forms/submit"${formId ? ` data-form-id="${escapeHtml(formId)}"` : ''}>
+  <form method="post" action="${escapeHtml(formActionUrl(baseUrl, formId))}"${formId ? ` data-form-id="${escapeHtml(formId)}"` : ''}>
+    <div class="hp-field" aria-hidden="true">
+      <label>Leave this field empty <input type="text" name="website" tabindex="-1" autocomplete="off" /></label>
+    </div>
     <label>Name <input type="text" name="name" required /></label>
     <label>Email <input type="email" name="email" required /></label>
     <label>Message <textarea name="message" rows="5" required></textarea></label>
@@ -224,7 +239,7 @@ function renderCtaSection(props: Record<string, unknown>): string {
 }
 
 /** Renders one block; unknown block types render nothing. */
-export function renderBlock(block: SnapshotPageBlock): string {
+export function renderBlock(block: SnapshotPageBlock, baseUrl: string): string {
   switch (block.type) {
     case 'hero':
       return renderHero(block.props);
@@ -239,7 +254,7 @@ export function renderBlock(block: SnapshotPageBlock): string {
     case 'faq':
       return renderFaq(block.props);
     case 'contact_form':
-      return renderContactForm(block.props);
+      return renderContactForm(block.props, baseUrl);
     case 'map_address':
       return renderMapAddress(block.props);
     case 'logo_strip':
@@ -290,7 +305,7 @@ export function renderPage(site: SiteShell, page: SnapshotPage): string {
   const cssPath = cssPathFor(page.path);
   const nav = renderNav(site.pages);
   const footer = renderFooter(site);
-  const blocks = page.blocks.map(renderBlock).join('\n');
+  const blocks = page.blocks.map((block) => renderBlock(block, site.baseUrl)).join('\n');
 
   return `<!doctype html>
 <html lang="en">

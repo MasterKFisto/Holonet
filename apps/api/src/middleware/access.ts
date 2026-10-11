@@ -1,6 +1,6 @@
 import type { MiddlewareHandler } from 'hono';
 import { eq } from 'drizzle-orm';
-import { blocks, pages, sites } from '@holonet/db';
+import { blocks, forms, pages, sites } from '@holonet/db';
 import { requireDb } from '../lib/db.js';
 import { errorBody } from '../lib/errors.js';
 import { unauthorized, verifyWorkspaceMembership } from './auth.js';
@@ -93,6 +93,28 @@ export function requireBlockAccess(paramName = 'blockId'): MiddlewareHandler<App
     c.set('siteId', site.id);
     c.set('pageId', page.id);
     c.set('blockId', block.id);
+    await next();
+  };
+}
+
+/** Form access control: form → site → workspace membership. */
+export function requireFormAccess(paramName = 'formId'): MiddlewareHandler<AppEnv> {
+  return async (c, next) => {
+    const user = c.get('user');
+    if (!user) {
+      return unauthorized(c, 'authentication required');
+    }
+    const formId = c.req.param(paramName);
+    if (!formId) {
+      return notFound(c, 'form not found');
+    }
+    const db = requireDb(c);
+    const form = await db.query.forms.findFirst({ where: eq(forms.id, formId) });
+    if (!form || !(await verifyWorkspaceMembership(db, user.id, form.workspaceId))) {
+      return notFound(c, 'form not found');
+    }
+    c.set('workspaceId', form.workspaceId);
+    c.set('siteId', form.siteId);
     await next();
   };
 }

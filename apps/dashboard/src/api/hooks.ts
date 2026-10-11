@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiFetch } from '../lib/api';
-import type { HealthResponse, Site, User, Workspace } from './types';
+import type { Form, FormSubmission, HealthResponse, Site, User, Workspace } from './types';
 
 /**
  * Typed API hooks (TanStack Query).
@@ -45,5 +45,21 @@ export function useSite(siteId: string | undefined) {
     queryKey: ['site', siteId],
     queryFn: () => apiFetch<{ site: Site }>(`/api/sites/${siteId}`),
     enabled: siteId !== undefined,
+  });
+}
+
+export function useSiteForms(siteId: string | undefined) {
+  return useQuery({
+    queryKey: ['forms', siteId],
+    queryFn: () => apiFetch<{ forms: Form[] }>(`/api/sites/${siteId}/forms`),
+    enabled: siteId !== undefined,
+  });
+}
+
+export function useFormSubmissions(formId: string | undefined) {
+  return useQuery({
+    queryKey: ['submissions', formId],
+    queryFn: () => apiFetch<{ submissions: FormSubmission[] }>(`/api/forms/${formId}/submissions`),
+    enabled: formId !== undefined,
   });
 }

@@ -16,6 +16,7 @@ export const ERROR_CODES = [
   'RATE_LIMITED',
   'NOT_IMPLEMENTED',
   'INVALID_CONFIG',
+  'PAYLOAD_TOO_LARGE',
   'INTERNAL_ERROR',
 ] as const;
 

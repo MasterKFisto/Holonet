@@ -7,6 +7,15 @@ import type { AppEnv } from '../types.js';
 export const CSRF_COOKIE_NAME = 'holonet_csrf';
 const STATE_CHANGING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
+export interface CsrfProtectionOptions {
+  /**
+   * Path prefixes exempt from CSRF checks — public endpoints that
+   * intentionally accept cross-origin traffic (e.g. '/forms' form
+   * submissions from published static sites).
+   */
+  exclude?: string[];
+}
+
 function safeEqual(left: string, right: string): boolean {
   const leftBuffer = Buffer.from(left);
   const rightBuffer = Buffer.from(right);
@@ -20,10 +29,16 @@ function safeEqual(left: string, right: string): boolean {
  *
  * Cross-origin attackers cannot read the victim's cookie, so they cannot
  * forge the header. Combined with SameSite=Lax on the session cookie, this
- * blocks CSRF for all state-changing API routes.
+ * blocks CSRF for all state-changing API routes. Public endpoints can be
+ * exempted via `exclude` (they carry their own abuse protection).
  */
-export function csrfProtection(): MiddlewareHandler<AppEnv> {
+export function csrfProtection(options: CsrfProtectionOptions = {}): MiddlewareHandler<AppEnv> {
+  const exclude = options.exclude ?? [];
   return async (c, next) => {
+    if (exclude.some((prefix) => c.req.path.startsWith(prefix))) {
+      await next();
+      return;
+    }
     const secure = c.get('env').NODE_ENV === 'production';
     let token = getCookie(c, CSRF_COOKIE_NAME);
     if (!token) {

@@ -54,7 +54,9 @@ export function createApp(
   // Cross-cutting middleware (registration order = execution order).
   app.use('*', securityHeaders());
   app.use('*', cors({ origin: corsOriginList(env), credentials: true }));
-  app.use('*', csrfProtection());
+  // Public form submission endpoints are CSRF-exempt (protected by
+  // honeypot + IP/form rate limiting instead) — see docs/security.md.
+  app.use('*', csrfProtection({ exclude: ['/forms'] }));
   app.use('*', requestId());
   app.use('*', requestLogger());
   app.use(

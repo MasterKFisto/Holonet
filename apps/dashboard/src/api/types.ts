@@ -32,6 +32,37 @@ export interface Site {
   updatedAt: string;
 }
 
+export interface FormFieldDefinition {
+  name: string;
+  label: string;
+  type: 'text' | 'email' | 'textarea' | 'select' | 'checkbox' | 'file';
+  required?: boolean;
+  options?: string[];
+}
+
+export interface Form {
+  id: string;
+  siteId: string;
+  workspaceId: string;
+  name: string;
+  status: 'active' | 'disabled';
+  fields: FormFieldDefinition[];
+  notificationEmail: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FormSubmission {
+  id: string;
+  formId: string;
+  workspaceId: string;
+  /** Untrusted visitor data — always treat as plain text when rendering. */
+  data: Record<string, unknown>;
+  ipHash: string | null;
+  status: 'new' | 'read' | 'archived' | 'spam';
+  createdAt: string;
+}
+
 export interface HealthResponse {
   ok: boolean;
   service: string;

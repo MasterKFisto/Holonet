@@ -88,6 +88,7 @@ blockquote { margin: 1rem 0; padding: 1rem 1.25rem; border-left: 4px solid var(-
 .faq-item dt { font-weight: 700; }
 
 .contact-form form { display: grid; gap: 1rem; max-width: 32rem; }
+.hp-field { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
 .contact-form label { display: grid; gap: 0.25rem; font-weight: 500; }
 .contact-form input, .contact-form textarea {
   padding: 0.5rem 0.75rem;
