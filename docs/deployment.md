@@ -199,12 +199,17 @@ Teardown: `s remove -y`. Remote builder invocation:
 the deployment checklist, custom-domain/HTTPS-certificate notes, and the VPC/PostgreSQL notes
 are in `infra/alibaba/README.md`.
 
-> **PLACEHOLDER — builder invocation from the API.** `BUILDER_INVOKER=fc` (FcBuilderInvoker)
-> still returns 501 until the FC invoker SDK is wired; set `BUILDER_INVOKER=local` in s.yaml to
-> build in-process inside `holonet-app` until then.
-> **FC HTTP trigger — resolved.** `apps/api/src/function.ts` is the fc3 HTTP trigger adapter
-> (JSON event → Web Request → Hono → FC3 response); event shape + console verification:
-> docs/assumptions.md.
+> **Builder invocation — resolved.** `BUILDER_INVOKER=fc` uses the real fc3 SDK invoker
+> (`apps/api/src/invokers/fc-builder-invoker.ts`): asynchronous invocation
+> (`x-fc-invocation-type: Async`) of `holonet-builder` with `{ siteId, deploymentId }`, endpoint
+> `${accountId}.${region}.fc.aliyuncs.com`. Credential flow: inside Function Compute the invoker
+> uses the **temporary STS credentials** captured from the FC context by the HTTP trigger adapter
+> (`apps/api/src/lib/fc-context.ts` — issued by the `FC_ROLE_ARN` execution role); outside FC it
+> falls back to `OSS_ACCESS_KEY_ID`/`OSS_ACCESS_KEY_SECRET` (or
+> `ALIBABA_CLOUD_ACCESS_KEY_ID`/`ALIBABA_CLOUD_ACCESS_KEY_SECRET`) for local testing only.
+> Invocation failures mark the deployment + `site_build` job `failed`, record
+> `builder_invocation_failed` security (critical) + audit events, and return a structured
+> `BUILDER_INVOCATION_FAILED` error — deployments are never left stuck in `queued`.
 
 ## Backups
 

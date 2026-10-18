@@ -14,6 +14,10 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@alicloud/fc20230330": "^4.8.3",
+    "@alicloud/openapi-client": "^0.4.15",
+    "@alicloud/openapi-core": "^1.0.8",
+    "@darabonba/typescript": "^1.0.5",
     "@holonet/ai": "workspace:*",
     "@holonet/builder": "workspace:*",
     "@holonet/core": "workspace:*",

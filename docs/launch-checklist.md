@@ -85,7 +85,5 @@ pnpm test                         # full suite green (incl. integration tests wi
 - **Admin MFA** — TOTP enrollment/challenge not yet implemented (data model ready).
   Mitigations until implemented: dedicated admin account with a unique high-entropy
   password, security-event alerting on admin login failures, no shared admin logins.
-- **FC builder invocation** — `BUILDER_INVOKER=fc` (FcBuilderInvoker) returns 501 until
-  the FC invoker SDK is wired; use `BUILDER_INVOKER=local` in the meantime.
 - **Multi-instance rate limiting** — in-memory limiters are per-instance; move to a shared
   store (Redis) before scaling past one instance.

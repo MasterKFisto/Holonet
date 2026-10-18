@@ -2,13 +2,14 @@ import type { HolonetDatabase } from '@holonet/db';
 import type { StorageProvider } from '@holonet/storage';
 import { buildSite } from '@holonet/builder';
 import { AppError } from './errors.js';
+import { FcBuilderInvoker } from '../invokers/fc-builder-invoker.js';
 
 /**
  * Builder invocation abstraction.
  *
  * - LocalBuilderInvoker runs the build in-process (local development).
- * - FcBuilderInvoker invokes the builder Function Compute function
- *   (PLACEHOLDER — wired in the deployment phase, docs/deployment.md).
+ * - FcBuilderInvoker invokes the holonet-builder Function Compute function
+ *   asynchronously (BUILDER_INVOKER=fc) — see invokers/fc-builder-invoker.ts.
  */
 
 export interface BuilderInvoker {
@@ -39,22 +40,10 @@ export class LocalBuilderInvoker implements BuilderInvoker {
   }
 }
 
-export class FcBuilderInvoker implements BuilderInvoker {
-  readonly kind = 'fc' as const;
-
-  async invokeBuild(_siteId: string, _deploymentId: string): Promise<void> {
-    throw new AppError(
-      'NOT_IMPLEMENTED',
-      'Function Compute builder invocation is wired in the deployment phase',
-      501,
-    );
-  }
-}
-
-/** Selects the invoker from BUILDER_INVOKER (default: local). */
+/** Selects the invoker from BUILDER_INVOKER (default: local, Zod-validated). */
 export function createBuilderInvoker(kind: string, deps: BuilderInvokerDeps): BuilderInvoker {
   if (kind === 'fc') {
-    return new FcBuilderInvoker();
+    return new FcBuilderInvoker(deps);
   }
   if (kind !== 'local') {
     throw new AppError('INVALID_CONFIG', `unknown BUILDER_INVOKER: ${kind}`, 500);

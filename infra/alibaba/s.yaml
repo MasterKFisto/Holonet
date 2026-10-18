@@ -68,8 +68,8 @@ resources:
         OSS_PUBLIC_BASE_URL: ${vars.ossPublicBaseUrl}
         # On FC the credentials come from the RAM role (STS); no AccessKeys.
         OSS_ROLE_ARN: ${vars.roleArn}
-        # 'fc' calls holonet-builder (FcBuilderInvoker — PLACEHOLDER until the
-        # invoker SDK is wired; set 'local' for in-process builds meanwhile).
+        # 'fc' invokes holonet-builder asynchronously via the fc3 SDK using
+        # the STS credentials from the FC execution role.
         BUILDER_INVOKER: fc
         FC_FUNCTION_NAME_BUILDER: holonet-builder
         # Dashboard HTML shell: the asset manifest is baked into the code zip

@@ -1,5 +1,6 @@
 import { createApp } from './app.js';
 import { errorBody, type ErrorCode } from './lib/errors.js';
+import { getFcContext, storeFcContext } from './lib/fc-context.js';
 
 /**
  * Alibaba Cloud Function Compute 3.0 (component fc3) HTTP trigger adapter.
@@ -62,54 +63,10 @@ export interface Fc3HttpResponse {
 
 /**
  * FC context captured per invocation — other code (e.g. the FcBuilderInvoker)
- * reads temporary STS credentials from here at request time.
- *
- * Caveat: module scope is per-instance on Function Compute. Concurrent
- * requests inside one warm instance share this holder, so treat it as
- * best-effort; a request-scoped handoff is the upgrade path.
+ * reads temporary STS credentials from here at request time. The holder lives
+ * in lib/fc-context.ts to avoid a module cycle with the builder invoker.
  */
-export interface FcContextInfo {
-  requestId?: string;
-  region?: string;
-  accountId?: string;
-  credentials?: {
-    accessKeyId?: string;
-    accessKeySecret?: string;
-    securityToken?: string;
-  };
-  raw?: unknown;
-}
-
-let currentFcContext: FcContextInfo | undefined;
-
-export function storeFcContext(context: unknown): void {
-  const record =
-    typeof context === 'object' && context !== null ? (context as Record<string, unknown>) : {};
-  const credentials =
-    typeof record['credentials'] === 'object' && record['credentials'] !== null
-      ? (record['credentials'] as Record<string, unknown>)
-      : {};
-  currentFcContext = {
-    requestId: typeof record['requestId'] === 'string' ? record['requestId'] : undefined,
-    region: typeof record['region'] === 'string' ? record['region'] : undefined,
-    accountId: typeof record['accountId'] === 'string' ? record['accountId'] : undefined,
-    credentials: {
-      accessKeyId:
-        typeof credentials['accessKeyId'] === 'string' ? credentials['accessKeyId'] : undefined,
-      accessKeySecret:
-        typeof credentials['accessKeySecret'] === 'string'
-          ? credentials['accessKeySecret']
-          : undefined,
-      securityToken:
-        typeof credentials['securityToken'] === 'string' ? credentials['securityToken'] : undefined,
-    },
-    raw: context,
-  };
-}
-
-export function getFcContext(): FcContextInfo | undefined {
-  return currentFcContext;
-}
+export { storeFcContext, getFcContext, type FcContextInfo } from './lib/fc-context.js';
 
 /** Parses the FC3 HTTP event from a JSON string, Buffer, or plain object. */
 export function parseFcEvent(event: unknown): Fc3HttpEvent {
@@ -273,8 +230,9 @@ export async function handler(event: unknown, context?: unknown): Promise<Fc3Htt
 
   // The request id may also arrive on the event context — surface it for
   // cross-function tracing.
-  if (currentFcContext && !currentFcContext.requestId && parsed.requestContext?.requestId) {
-    currentFcContext.requestId = parsed.requestContext.requestId;
+  const storedContext = getFcContext();
+  if (storedContext && !storedContext.requestId && parsed.requestContext?.requestId) {
+    storedContext.requestId = parsed.requestContext.requestId;
   }
 
   try {

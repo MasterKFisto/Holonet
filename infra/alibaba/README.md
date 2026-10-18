@@ -173,10 +173,6 @@ and marks the deployment `live`/`failed` and the `site_build` job
 
 ## Placeholder notes
 
-- **PLACEHOLDER — builder invocation from the API.** `BUILDER_INVOKER=fc`
-  (`FcBuilderInvoker`) still returns 501 until the FC invoker SDK is wired.
-  Until then, set `BUILDER_INVOKER=local` in s.yaml so publishes build
-  in-process inside `holonet-app`.
 - **PLACEHOLDER — rate limiting across instances.** In-memory limiters are
   per-instance; move to a shared store (Redis) for multi-instance scale.
 - **FC HTTP trigger signature — resolved.** `apps/api/src/function.ts` is a
@@ -184,6 +180,17 @@ and marks the deployment `live`/`failed` and the `site_build` job
   Hono → `{ statusCode, headers, isBase64Encoded, body }`). Event shape +
   verification step: [docs/assumptions.md](../../docs/assumptions.md).
   Smoke-test the packaged adapter locally:
+
+```bash
+node -e "require('./infra/alibaba/dist/holonet-app/index.js').handler(JSON.stringify({version:'v1',rawPath:'/api/health',body:'',isBase64Encoded:false,queryParameters:{},headers:{host:'localhost'},requestContext:{http:{method:'GET',path:'/api/health'}}}), {}).then(r => console.log(r.statusCode, r.body))"
+```
+
+- **Builder invocation from the API — resolved.** `BUILDER_INVOKER=fc` invokes
+  `holonet-builder` asynchronously through the fc3 SDK using the STS
+  credentials captured from the FC context (fallback: OSS/ALIBABA_CLOUD
+  AccessKey env vars for local testing). Failures mark the deployment + job
+  `failed` with security/audit events — see
+  [docs/deployment.md](../../docs/deployment.md).
 
 ```bash
 node -e "require('./infra/alibaba/dist/holonet-app/index.js').handler(JSON.stringify({version:'v1',rawPath:'/api/health',body:'',isBase64Encoded:false,queryParameters:{},headers:{host:'localhost'},requestContext:{http:{method:'GET',path:'/api/health'}}}), {}).then(r => console.log(r.statusCode, r.body))"

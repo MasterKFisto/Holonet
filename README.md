@@ -255,7 +255,8 @@ curl -i http://localhost:3000/api/workspaces   # 401 UNAUTHORIZED (auth required
 - **Error shape** (stable — clients rely on `code`, never on `message`):
   `{ "error": { "code": "NOT_FOUND", "message": "…" }, "requestId": "…" }`. Codes:
   `BAD_REQUEST`, `VALIDATION_ERROR`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`,
-  `RATE_LIMITED`, `NOT_IMPLEMENTED`, `INVALID_CONFIG`, `PAYLOAD_TOO_LARGE`, `INTERNAL_ERROR`.
+  `RATE_LIMITED`, `NOT_IMPLEMENTED`, `INVALID_CONFIG`, `PAYLOAD_TOO_LARGE`,
+  `BUILDER_INVOCATION_FAILED`, `INTERNAL_ERROR`.
 - **Middleware:** request IDs (`X-Request-Id`, client-supplied when safe), structured request
   logging, security headers, CORS for the Vite dashboard (`CORS_ORIGINS`, default
   `http://localhost:5173`), per-IP rate limiting on `/api/*`

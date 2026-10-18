@@ -272,4 +272,4 @@ AIProvider.analyzeWebsiteImport(input: ImportAnalysisInput): Promise<ImportAnaly
 
 Open questions (marked `PLACEHOLDER` in the relevant files) are tracked in
 docs/infrastructure.md and docs/assumptions.md: Docker host specifics,
-MinIO add-on packaging, the OSS SDK choice, and the FC builder-invoker SDK.
+MinIO add-on packaging, and the OSS SDK choice.

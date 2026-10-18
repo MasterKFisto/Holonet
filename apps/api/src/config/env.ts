@@ -29,6 +29,11 @@ export const envSchema = z.object({
   DASHBOARD_ASSET_MANIFEST_PATH: z.string().min(1).optional(),
   /** Builder invocation mode: 'local' (in-process) or 'fc' (Function Compute). */
   BUILDER_INVOKER: z.enum(['local', 'fc']).default('local'),
+  /** Name of the builder Function Compute function (BUILDER_INVOKER=fc). */
+  FC_FUNCTION_NAME_BUILDER: z.string().min(1).default('holonet-builder'),
+  /** Region + account id for the FC endpoint `${accountId}.${region}.fc.aliyuncs.com`. */
+  ALIBABA_CLOUD_REGION: z.string().min(1).optional(),
+  ALIBABA_CLOUD_ACCOUNT_ID: z.string().min(1).optional(),
   /**
    * AI model label recorded on ai_analyses rows (foundation uses the
    * built-in heuristics model; external AI providers arrive later).
