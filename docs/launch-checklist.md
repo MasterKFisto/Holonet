@@ -89,5 +89,3 @@ pnpm test                         # full suite green (incl. integration tests wi
   the FC invoker SDK is wired; use `BUILDER_INVOKER=local` in the meantime.
 - **Multi-instance rate limiting** — in-memory limiters are per-instance; move to a shared
   store (Redis) before scaling past one instance.
-- **FC HTTP trigger signature** — confirm the Web `Request`/`Response` signature against
-  the deployed runtime before go-live.

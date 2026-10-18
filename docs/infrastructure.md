@@ -153,9 +153,10 @@ All values are placeholders; real values come from environment variables.
 
 ## Placeholders and assumptions
 
-- **PLACEHOLDER — FC HTTP trigger signature.** `apps/api/src/function.ts` assumes Function
-  Compute v3-style HTTP triggers passing a Web `Request` and expecting a `Response`. Confirm the
-  chosen FC runtime/trigger before deployment and update `infra/alibaba/README.md` (rule 16).
+- **FC HTTP trigger signature — resolved.** `apps/api/src/function.ts` implements the fc3
+  HTTP trigger adapter (API-Gateway-style JSON event → Web Request → Hono → FC3 response,
+  with base64 handling, structured 400 fallbacks, and the FC context holder). The exact event
+  shape and the console verification step are recorded in docs/assumptions.md.
 - **Deployment tooling — resolved.** Serverless Devs (`s` CLI) drives Function Compute
   deployments from `infra/alibaba/s.yaml`; packaging scripts bundle each function with esbuild
   (`infra/scripts/package-api.sh`, `package-builder.sh`); `infra/scripts/deploy.sh` orchestrates

@@ -271,5 +271,5 @@ AIProvider.analyzeWebsiteImport(input: ImportAnalysisInput): Promise<ImportAnaly
 ## Placeholders and assumptions
 
 Open questions (marked `PLACEHOLDER` in the relevant files) are tracked in
-docs/infrastructure.md: FC HTTP-trigger signature, Docker host specifics,
+docs/infrastructure.md and docs/assumptions.md: Docker host specifics,
 MinIO add-on packaging, the OSS SDK choice, and the FC builder-invoker SDK.

@@ -415,5 +415,6 @@ It is wired through `PUBLIC_BASE_URL` and `OSS_PUBLIC_BASE_URL` in `.env.example
 - [docs/infrastructure.md](docs/infrastructure.md) — local and Alibaba Cloud infrastructure, network, RAM/OSS, secrets policy
 - [docs/alibaba-cloud-setup.md](docs/alibaba-cloud-setup.md) — step-by-step Alibaba Cloud account setup (RAM users/roles, OSS buckets, VPC, PostgreSQL in Docker, custom domain, policy examples)
 - [docs/security.md](docs/security.md) — security posture and threat handling
+- [docs/assumptions.md](docs/assumptions.md) — assumptions about external systems (FC3 event shape, runtime) with verification steps
 - [docs/launch-checklist.md](docs/launch-checklist.md) — launch checklist: local + production verification steps
 - [docs/deployment.md](docs/deployment.md) — deployment and operations procedure

@@ -63,7 +63,7 @@ Each script esbuild-bundles the FC entrypoint (`apps/api/src/function.ts` /
 the archive root. Packaging needs no Alibaba credentials. Smoke-test the app bundle locally:
 
 ```bash
-node -e "require('./infra/alibaba/dist/holonet-app/index.js').handler(new Request('http://localhost/api/health'), {}).then(async r => console.log(r.status, await r.text()))"
+node -e "require('./infra/alibaba/dist/holonet-app/index.js').handler(JSON.stringify({version:'v1',rawPath:'/api/health',body:'',isBase64Encoded:false,queryParameters:{},headers:{host:'localhost'},requestContext:{http:{method:'GET',path:'/api/health'}}}), {}).then(r => console.log(r.statusCode, r.body))"
 ```
 
 ## Dashboard asset publishing
@@ -202,8 +202,9 @@ are in `infra/alibaba/README.md`.
 > **PLACEHOLDER — builder invocation from the API.** `BUILDER_INVOKER=fc` (FcBuilderInvoker)
 > still returns 501 until the FC invoker SDK is wired; set `BUILDER_INVOKER=local` in s.yaml to
 > build in-process inside `holonet-app` until then.
-> **PLACEHOLDER — FC HTTP trigger signature.** `apps/api/src/function.ts` assumes FC HTTP
-> triggers pass a Web `Request` and expect a `Response`; confirm against the deployed runtime.
+> **FC HTTP trigger — resolved.** `apps/api/src/function.ts` is the fc3 HTTP trigger adapter
+> (JSON event → Web Request → Hono → FC3 response); event shape + console verification:
+> docs/assumptions.md.
 
 ## Backups
 

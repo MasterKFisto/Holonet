@@ -99,7 +99,7 @@ needed for packaging.
 Smoke-test the packaged app handler locally:
 
 ```bash
-node -e "require('./infra/alibaba/dist/holonet-app/index.js').handler(new Request('http://localhost/api/health'), {}).then(async r => console.log(r.status, await r.text()))"
+node -e "require('./infra/alibaba/dist/holonet-app/index.js').handler(JSON.stringify({version:'v1',rawPath:'/api/health',body:'',isBase64Encoded:false,queryParameters:{},headers:{host:'localhost'},requestContext:{http:{method:'GET',path:'/api/health'}}}), {}).then(r => console.log(r.statusCode, r.body))"
 ```
 
 ## Invoking the builder
@@ -173,12 +173,18 @@ and marks the deployment `live`/`failed` and the `site_build` job
 
 ## Placeholder notes
 
-- **PLACEHOLDER — FC HTTP trigger signature.** `apps/api/src/function.ts`
-  assumes FC HTTP triggers pass a Web `Request` and expect a Web `Response`.
-  Confirm against the deployed runtime before going live (rule 16).
 - **PLACEHOLDER — builder invocation from the API.** `BUILDER_INVOKER=fc`
   (`FcBuilderInvoker`) still returns 501 until the FC invoker SDK is wired.
   Until then, set `BUILDER_INVOKER=local` in s.yaml so publishes build
   in-process inside `holonet-app`.
 - **PLACEHOLDER — rate limiting across instances.** In-memory limiters are
   per-instance; move to a shared store (Redis) for multi-instance scale.
+- **FC HTTP trigger signature — resolved.** `apps/api/src/function.ts` is a
+  full fc3 HTTP trigger adapter (API-Gateway-style JSON event → Web Request →
+  Hono → `{ statusCode, headers, isBase64Encoded, body }`). Event shape +
+  verification step: [docs/assumptions.md](../../docs/assumptions.md).
+  Smoke-test the packaged adapter locally:
+
+```bash
+node -e "require('./infra/alibaba/dist/holonet-app/index.js').handler(JSON.stringify({version:'v1',rawPath:'/api/health',body:'',isBase64Encoded:false,queryParameters:{},headers:{host:'localhost'},requestContext:{http:{method:'GET',path:'/api/health'}}}), {}).then(r => console.log(r.statusCode, r.body))"
+```

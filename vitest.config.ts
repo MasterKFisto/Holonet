@@ -3,7 +3,12 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     environment: 'node',
-    include: ['packages/*/src/**/*.test.ts', 'apps/*/src/**/*.test.ts', 'apps/*/src/**/*.test.tsx'],
+    include: [
+      'packages/*/src/**/*.test.ts',
+      'apps/*/src/**/*.test.ts',
+      'apps/*/src/**/*.test.tsx',
+      'apps/*/test/**/*.test.ts',
+    ],
     // NOTE: the DB-backed integration suites in apps/api/src (auth, crud,
     // assets, forms, import, publish) are narrative suites — each `it` block
     // builds on module-level state set up by the previous one (marked
