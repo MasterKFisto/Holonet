@@ -98,16 +98,16 @@ disk; no Alibaba Cloud resources are required to develop or test.
 
 ## Production architecture
 
-| Piece                      | Alibaba Cloud service                                                             |
-| -------------------------- | --------------------------------------------------------------------------------- |
-| API + dashboard entrypoint | Function Compute function `holonet-app` (`FC_FUNCTION_NAME_APP`)                  |
-| Static site builds         | Separate Function Compute function `holonet-builder` (`FC_FUNCTION_NAME_BUILDER`) |
-| Metadata database          | PostgreSQL 16 running in Docker on a Docker host (ECS) inside the VPC             |
-| Public objects             | OSS public bucket: JPG, CSS, JS, fonts, published static websites, app assets     |
-| Non-public objects         | OSS private bucket: backups, form submissions, AI import snapshots                |
-| Deployment identity        | Dedicated RAM user (AccessKey pair only in the deployer's environment)            |
-| Function identity          | RAM role assumed by Function Compute, granting OSS and SLS log access             |
-| Public entry               | Custom domain https://holonet.section-zero.link                                   |
+| Piece                      | Alibaba Cloud service                                                                                |
+| -------------------------- | ---------------------------------------------------------------------------------------------------- |
+| API + dashboard entrypoint | Function Compute function `holonet-app` (`FC_FUNCTION_NAME_APP`)                                     |
+| Static site builds         | Separate Function Compute function `holonet-builder` (`FC_FUNCTION_NAME_BUILDER`)                    |
+| Metadata database          | PostgreSQL 16 running in Docker on a Docker host (ECS) inside the VPC                                |
+| Public objects             | OSS public bucket: JPG, CSS, JS, fonts, published static websites, app assets                        |
+| Non-public objects         | OSS private bucket: backups, form submissions, AI import snapshots                                   |
+| Deployment identity        | Dedicated RAM user (AccessKey pair only in the deployer's environment)                               |
+| Function identity          | RAM role assumed by Function Compute, granting OSS and SLS log access                                |
+| Public entry               | Custom domain (platform hostname `PUBLIC_DOMAIN`, default example https://holonet.section-zero.link) |
 
 - The `holonet-app` function serves the **dashboard HTML** (from the OSS-stored SPA bundle) and
   the **API** behind the custom domain.
@@ -120,7 +120,8 @@ disk; no Alibaba Cloud resources are required to develop or test.
   bucket.
 - Deployment is performed by a dedicated **RAM user**; the running functions use a **RAM role**
   with least-privilege OSS and SLS access (templates in `infra/alibaba/`).
-- The custom domain https://holonet.section-zero.link fronts the platform; published sites are
+- The custom domain (platform hostname `PUBLIC_DOMAIN` / `PUBLIC_BASE_URL`, configurable —
+  default example https://holonet.section-zero.link) fronts the platform; published sites are
   served from the OSS public bucket (optionally via CDN — see future upgrade paths).
 
 ```mermaid

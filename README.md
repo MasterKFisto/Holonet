@@ -2,7 +2,8 @@
 
 Security-first static website platform with AI-assisted website import, template-based publishing, form handling, backups, and managed static hosting.
 
-- **Fixed public hostname:** https://holonet.section-zero.link
+- **Platform hostname:** https://holonet.section-zero.link (default example — configurable,
+  see [docs/deployment.md](docs/deployment.md), "Changing the platform hostname")
 - **Language:** TypeScript (strict mode)
 - **Runtime:** Node.js 20
 - **Package manager:** pnpm (monorepo)
@@ -34,9 +35,11 @@ separate build function (`holonet-builder`); PostgreSQL runs in Docker on a Dock
 VPC and is reached over the private network; the OSS public bucket holds JPG, CSS, JS, fonts,
 published sites, and app assets; the OSS private bucket holds backups, form submissions, and AI
 import snapshots; a RAM user deploys, a RAM role authorizes the functions (OSS + logs); the
-custom domain is https://holonet.section-zero.link.
+custom domain is the platform hostname (`PUBLIC_DOMAIN`, default example
+holonet.section-zero.link).
 
-**Request flow** — (1) browser visits https://holonet.section-zero.link; (2) Function Compute
+**Request flow** — (1) browser visits the platform hostname (default example
+https://holonet.section-zero.link); (2) Function Compute
 returns dashboard HTML or an API response; (3) static assets load from OSS; (4) the API writes to
 PostgreSQL; (5) publish invokes the builder function; (6) the builder generates the static site
 and uploads it to OSS; (7) the published site is served from OSS or a CDN/OSS-backed domain.
@@ -216,7 +219,8 @@ curl -i http://localhost:3000/api/workspaces   # 401 UNAUTHORIZED (auth required
   and the public form-submission endpoints. Every other route from the API plan exists with
   structured `501 NOT_IMPLEMENTED` responses until its phase lands.
 - **Authentication:** scrypt password hashing (constant-time verify), jose HS256 session JWTs in
-  the HTTP-only `holonet_session` cookie (Secure in production, `SameSite=Lax`, revoked by
+  the HTTP-only `holonet_session` cookie (Secure when `PUBLIC_BASE_URL` is `https://`,
+  `SameSite=Lax`, revoked by
   `users.token_version` on logout/reset), double-submit CSRF protection (`holonet_csrf` +
   `X-CSRF-Token`), login rate limiting (5 failures / 15 min per IP+email), hashed single-use
   password-reset tokens (1 h expiry), and `security_events` / `audit_logs` records for every
@@ -258,7 +262,7 @@ curl -i http://localhost:3000/api/workspaces   # 401 UNAUTHORIZED (auth required
   `RATE_LIMITED`, `NOT_IMPLEMENTED`, `INVALID_CONFIG`, `PAYLOAD_TOO_LARGE`,
   `BUILDER_INVOCATION_FAILED`, `INTERNAL_ERROR`.
 - **Middleware:** request IDs (`X-Request-Id`, client-supplied when safe), structured request
-  logging, security headers, CORS for the Vite dashboard (`CORS_ORIGINS`, default
+  logging, security headers, CORS for the dashboard (`CORS_ORIGINS`, comma-separated; default
   `http://localhost:5173`), per-IP rate limiting on `/api/*`
   (`RATE_LIMIT_WINDOW_SECONDS` / `RATE_LIMIT_MAX_REQUESTS`, default 300 req / 60 s), and CSRF
   protection for state-changing routes.
@@ -323,8 +327,9 @@ pnpm --filter dashboard preview    # preview the production build
 - **API access:** the dev server proxies `/api` (and `/storage`) to the local API on
   `http://localhost:3000` (vite.config.ts), so start the API first (`pnpm --filter api dev`).
 - **Base URL:** `VITE_PUBLIC_API_BASE_URL` (see `apps/dashboard/.env.example`) defaults to
-  `http://localhost:3000`; in production the dashboard is served behind
-  https://holonet.section-zero.link and uses same-origin `/api`.
+  `http://localhost:3000`; in production the dashboard is served behind the platform hostname
+  (`PUBLIC_BASE_URL`, default example https://holonet.section-zero.link) and uses same-origin
+  `/api`.
 - **Routes:** `/login`, `/register`, `/dashboard`, `/sites`, `/sites/:siteId`,
   `/sites/:siteId/pages`, `/sites/:siteId/pages/:pageId`, `/sites/:siteId/theme`,
   `/sites/:siteId/publish`, `/sites/:siteId/forms`, `/sites/:siteId/import`, `/settings`,
@@ -343,6 +348,7 @@ All configuration comes from environment variables — see `.env.example` (rules
 | ---------------------------------------------- | --------------------------------------------------------------------------------------------------- |
 | `NODE_ENV`                                     | `development` locally, `production` on Alibaba Cloud                                                |
 | `PORT`                                         | Port for the local API server (default 3000)                                                        |
+| `PUBLIC_BASE_URL`                              | Platform hostname (configurable; default example `https://holonet.section-zero.link`)               |
 | `CORS_ORIGINS`                                 | Comma-separated origins allowed by CORS (local Vite dashboard by default)                           |
 | `RATE_LIMIT_WINDOW_SECONDS`                    | Rate limit window for `/api/*` (default 60)                                                         |
 | `RATE_LIMIT_MAX_REQUESTS`                      | Max requests per IP per window for `/api/*` (default 300)                                           |
@@ -363,7 +369,6 @@ All configuration comes from environment variables — see `.env.example` (rules
 | `AUTH_SECRET`                                  | Session signing secret (min 32 chars — HS256 key size); dev placeholder, replace in production      |
 | `SESSION_COOKIE_NAME`                          | Session cookie name (`holonet_session`)                                                             |
 | `SESSION_MAX_AGE_SECONDS`                      | Session token lifetime in seconds (default 604800 = 7 days)                                         |
-| `COOKIE_SECURE`                                | Enforce Secure flag on cookies (`true` in production)                                               |
 | `ADMIN_INITIAL_PASSWORD`                       | Initial admin password for `pnpm db:seed` (stored as a scrypt hash, never plaintext)                |
 | `AI_PROVIDER`                                  | AI import provider (`manual` default; provider interfaces in packages/ai)                           |
 | `AI_ENDPOINT` / `AI_API_KEY` / `AI_MODEL`      | Optional AI provider endpoint, key, and model — the key comes from the environment, never from code |
@@ -390,7 +395,8 @@ Production runs on Alibaba Cloud:
   non-public resources. See `infra/alibaba/oss/`.
 - **Identity** — a dedicated RAM user performs deployments; the FC RAM role grants the functions
   least-privilege OSS and SLS log access. See `infra/alibaba/ram/`.
-- **Custom domain** — https://holonet.section-zero.link is bound to the `holonet-app` function;
+- **Custom domain** — the platform hostname (`PUBLIC_DOMAIN`, default example
+  holonet.section-zero.link) is bound to the `holonet-app` function;
   published sites are served from the OSS public bucket (CDN optional).
 - **Backups** — `infra/scripts/backup-db.sh` / `restore-db.sh` (pg_dump/pg_restore against
   `DATABASE_URL`), with dumps stored in the private OSS bucket.
@@ -403,11 +409,11 @@ Full procedure: [docs/deployment.md](docs/deployment.md). Architecture and reque
 [docs/alibaba-cloud-setup.md](docs/alibaba-cloud-setup.md).**
 Placeholder assumptions are marked `PLACEHOLDER` in the relevant files.
 
-## 7. Fixed hostname
+## 7. Platform hostname
 
-The public hostname is fixed: **https://holonet.section-zero.link**.
+The platform hostname is configurable: the default example is **https://holonet.section-zero.link**.
 
-It is wired through `PUBLIC_BASE_URL` and `OSS_PUBLIC_BASE_URL` in `.env.example`, used as the default by `packages/core`, and serves as the origin for published sites. Do not invent other hostnames.
+It is wired through `PUBLIC_BASE_URL` (and `OSS_PUBLIC_BASE_URL`) in `.env.example`, used as the default by `packages/core`, and serves as the origin for published sites. To move to a different domain, see [docs/deployment.md](docs/deployment.md), "Changing the platform hostname" — it lists every location that references the hostname.
 
 ## Documentation
 

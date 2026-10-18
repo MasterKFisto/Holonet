@@ -8,6 +8,11 @@ import { AppError } from '../lib/errors.js';
 export const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(3000),
+  /**
+   * Public platform hostname — configurable, the default is the example
+   * https://holonet.section-zero.link. Also drives the cookie Secure flag
+   * (https:// URLs get Secure cookies — see cookieSecure).
+   */
   PUBLIC_BASE_URL: z.string().url().default('https://holonet.section-zero.link'),
   /** Required once the database is wired into the API (db phase). */
   DATABASE_URL: z.string().min(1).optional(),
@@ -87,4 +92,13 @@ export function corsOriginList(env: Env): string[] {
   return env.CORS_ORIGINS.split(',')
     .map((origin) => origin.trim())
     .filter((origin) => origin.length > 0);
+}
+
+/**
+ * Cookie Secure flag, derived from the platform hostname: cookies are Secure
+ * whenever PUBLIC_BASE_URL is https:// (any domain — the hostname is
+ * configurable). Local development over http:// gets plain cookies.
+ */
+export function cookieSecure(env: Env): boolean {
+  return new URL(env.PUBLIC_BASE_URL).protocol === 'https:';
 }

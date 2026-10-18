@@ -1,6 +1,7 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import type { MiddlewareHandler } from 'hono';
 import { getCookie, setCookie } from 'hono/cookie';
+import { cookieSecure } from '../config/env.js';
 import { errorBody } from '../lib/errors.js';
 import type { AppEnv } from '../types.js';
 
@@ -39,7 +40,7 @@ export function csrfProtection(options: CsrfProtectionOptions = {}): MiddlewareH
       await next();
       return;
     }
-    const secure = c.get('env').NODE_ENV === 'production';
+    const secure = cookieSecure(c.get('env'));
     let token = getCookie(c, CSRF_COOKIE_NAME);
     if (!token) {
       token = randomBytes(32).toString('base64url');

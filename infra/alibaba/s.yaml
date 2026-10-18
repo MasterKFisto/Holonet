@@ -17,8 +17,9 @@ vars:
   vpcId: ${env('VPC_ID')}
   vSwitchIds: ${env('VSWITCH_IDS')}
   securityGroupId: ${env('SECURITY_GROUP_ID')}
-  # Fixed public hostname (docs/deployment.md).
-  publicBaseUrl: https://holonet.section-zero.link
+  # Platform hostname (configurable — see docs/deployment.md,
+  # "Changing the platform hostname").
+  publicBaseUrl: ${env('PUBLIC_BASE_URL')}
   publicBucket: ${env('OSS_PUBLIC_BUCKET')}
   privateBucket: ${env('OSS_PRIVATE_BUCKET')}
   ossRegion: ${env('OSS_REGION')}
@@ -58,7 +59,7 @@ resources:
         AUTH_SECRET: ${vars.authSecret}
         SESSION_COOKIE_NAME: holonet_session
         SESSION_MAX_AGE_SECONDS: '604800'
-        COOKIE_SECURE: 'true'
+        # Cookie Secure derives from the PUBLIC_BASE_URL scheme (https://).
         CORS_ORIGINS: ${vars.publicBaseUrl}
         STORAGE_PROVIDER: oss
         OSS_REGION: ${vars.ossRegion}
@@ -105,11 +106,12 @@ resources:
               - PATCH
               - DELETE
               - OPTIONS
-      # Custom domain placeholder: bind https://holonet.section-zero.link here
-      # once the domain is verified and the HTTPS certificate is issued — see
-      # infra/alibaba/README.md ("Custom domain and HTTPS certificate").
+      # Custom domain: the platform hostname (PUBLIC_DOMAIN, the bare domain
+      # of PUBLIC_BASE_URL). Bind it in the console or via this block once
+      # the domain is verified and the HTTPS certificate is issued — see
+      # docs/alibaba-cloud-setup.md ("Configure the custom domain").
       customDomains:
-        - domainName: holonet.section-zero.link
+        - domainName: ${env('PUBLIC_DOMAIN')}
           protocol: HTTP
           routeConfigs:
             - path: /*

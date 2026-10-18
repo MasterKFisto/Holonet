@@ -75,7 +75,8 @@ Holonet is security-first. This document records the standing security posture; 
   `email`, `role`, `ver` (session version). Signed with `AUTH_SECRET` (minimum 32 characters —
   the HS256 key size).
 - The token is stored in an **HTTP-only cookie** (`SESSION_COOKIE_NAME`, default
-  `holonet_session`): `HttpOnly`, `SameSite=Lax`, `Secure` in production, expiry
+  `holonet_session`): `HttpOnly`, `SameSite=Lax`, `Secure` whenever `PUBLIC_BASE_URL` is
+  `https://` (the platform hostname is configurable), expiry
   `SESSION_MAX_AGE_SECONDS` (default 7 days).
 - **Revocation:** every user carries `users.token_version`. Logout and password reset increment
   it, so previously issued tokens fail the `ver` check and are rejected — no server-side session
@@ -241,7 +242,8 @@ Implementation: `apps/api/src/routes/sites.ts` (`importSiteHandler`),
 
 ## Network and storage
 
-- Traffic is HTTPS-only; the fixed hostname `https://holonet.section-zero.link` fronts the platform.
+- Traffic is HTTPS-only; the platform hostname (`PUBLIC_BASE_URL`, default example
+  `https://holonet.section-zero.link` — configurable) fronts the platform.
 - OSS private bucket has no public read; the public bucket policy allows `GetObject` only (see `infra/alibaba/oss/oss-bucket-policy.example.json`).
 - Function Compute runs in the VPC (`VPC_ID`/`VSWITCH_IDS`/`SECURITY_GROUP_ID`) with a least-privilege RAM role (`infra/alibaba/ram/`).
 - **Backups are stored in the private OSS bucket (or locally on the Docker host)** — a database

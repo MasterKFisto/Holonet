@@ -43,7 +43,7 @@ while IFS= read -r line; do
   esac
 done < "$ENV_FILE"
 
-# 1. Readiness check (tooling + production env vars + fixed hostname).
+# 1. Readiness check (tooling + production env vars + platform hostname).
 bash "$ROOT_DIR/infra/scripts/deploy-check.sh" --production
 
 # 2. Dashboard assets (skip with --skip-dashboard).

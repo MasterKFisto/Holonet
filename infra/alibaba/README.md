@@ -156,8 +156,10 @@ and marks the deployment `live`/`failed` and the `site_build` job
   4. Update the `customDomains` entry to `protocol: HTTPS` with the `certConfig`
      (certId/privateKey/certificate or a cert reference) — or bind the domain in
      the FC console and leave the s.yaml entry as documentation.
-- The fixed hostname `https://holonet.section-zero.link` is `PUBLIC_BASE_URL`
-  in the function environment (never change it — `deploy-check.sh` enforces it).
+- The platform hostname (configurable — `PUBLIC_BASE_URL` / `PUBLIC_DOMAIN`,
+  default example `https://holonet.section-zero.link`) is passed into the
+  function environment; `deploy-check.sh --production` enforces that
+  `PUBLIC_BASE_URL` is a valid `https://` URL.
 
 ## Function Compute → PostgreSQL in Docker (VPC notes)
 

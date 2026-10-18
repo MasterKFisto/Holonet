@@ -17,7 +17,7 @@ deploys follow [docs/deployment.md](deployment.md) and
 | Item                       | Required? | Notes                                                                                                                                 |
 | -------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------- |
 | Alibaba Cloud account      | Yes       | Real-name verified account with billing enabled.                                                                                      |
-| Domain `section-zero.link` | Yes       | The fixed public hostname is `https://holonet.section-zero.link`.                                                                     |
+| Domain `section-zero.link` | Yes       | The platform hostname (configurable; default example `https://holonet.section-zero.link`).                                            |
 | DNS management access      | Yes       | The domain must be resolvable by Alibaba Cloud DNS (or a DNS provider you can update) to verify ownership and bind the custom domain. |
 | Node.js 20                 | Yes       | Function runtime and local tooling (`node -v` ≥ 20).                                                                                  |
 | pnpm                       | Yes       | Monorepo package manager (`pnpm -v` ≥ 9).                                                                                             |
@@ -190,7 +190,7 @@ Serverless Devs deploys `infra/alibaba/s.yaml`.
 | Variable             | Meaning                                                                                                         |
 | -------------------- | --------------------------------------------------------------------------------------------------------------- |
 | `DATABASE_URL`       | Private PostgreSQL URL — `postgres://holonet:<DB_PASSWORD>@<DB_PRIVATE_HOST>:5432/holonet` (private host only). |
-| `PUBLIC_BASE_URL`    | `https://holonet.section-zero.link` (fixed hostname — never change it).                                         |
+| `PUBLIC_BASE_URL`    | Platform hostname (configurable; default example `https://holonet.section-zero.link`).                          |
 | `OSS_PUBLIC_BUCKET`  | `holonet-section-zero-public`.                                                                                  |
 | `OSS_PRIVATE_BUCKET` | `holonet-section-zero-private`.                                                                                 |
 | `OSS_ENDPOINT`       | `https://oss-<ALIBABA_CLOUD_REGION>.aliyuncs.com`.                                                              |

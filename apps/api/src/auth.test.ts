@@ -87,6 +87,8 @@ describe.skipIf(!hasDb).sequential('holonet-api authentication (integration)', (
     const setCookie = res.headers.get('set-cookie') ?? '';
     expect(setCookie).toContain('holonet_session=');
     expect(setCookie).toContain('HttpOnly');
+    // The Secure flag derives from the PUBLIC_BASE_URL scheme (https://).
+    expect(setCookie).toContain('Secure');
     activeSession = sessionFrom(res);
     expect(activeSession).toBeTruthy();
 

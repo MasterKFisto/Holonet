@@ -1,12 +1,33 @@
 # Holonet — Deployment
 
-## Fixed hostname
+## Platform hostname
 
-The public hostname is fixed: **https://holonet.section-zero.link**.
+The platform hostname is configurable: the default example is **https://holonet.section-zero.link**,
+but any domain can be used — see "Changing the platform hostname" below.
 
 It is the value of `PUBLIC_BASE_URL` and fronts the platform (dashboard + API on Function
 Compute). Published sites are served from the OSS public bucket (`OSS_PUBLIC_BASE_URL`), directly
-or via a CDN-backed domain. Do not introduce other hostnames.
+or via a CDN-backed domain.
+
+### Changing the platform hostname
+
+To move the platform to a different domain, update every location that references the hostname:
+
+1. **`infra/alibaba/.env.deploy`** — set `PUBLIC_BASE_URL` (full `https://` URL) and
+   `PUBLIC_DOMAIN` (bare domain). Extend `CORS_ORIGINS` (comma-separated) with any extra
+   dashboard origins beyond the platform hostname itself.
+2. **`infra/alibaba/s.yaml` `customDomains` block** — it already binds `${env('PUBLIC_DOMAIN')}`
+   to `holonet-app`, so the new domain takes effect on the next `s deploy` with no YAML edits.
+3. **DNS record and SSL certificate for the new domain** — point the domain at Function Compute
+   and issue/verify its HTTPS certificate before binding (custom domains require a verified
+   domain and certificate in the FC console).
+4. **`docs/alibaba-cloud-setup.md` domain binding steps** — follow the domain binding procedure
+   there (DNS verification, certificate, CNAME, custom domain binding) for the new hostname.
+
+Then re-run the preflight (`bash infra/scripts/deploy-check.sh --production` — it now requires
+`PUBLIC_BASE_URL` to be a syntactically valid `https://` URL and `PUBLIC_DOMAIN` to be set) and
+redeploy. The cookie `Secure` flag, the CORS origin list, and the dashboard `<base href>` all
+derive from `PUBLIC_BASE_URL`, so no code changes are needed.
 
 ## Deployment architecture
 
@@ -29,9 +50,10 @@ bash infra/scripts/deploy-check.sh --production   # verifies tooling + productio
 ```
 
 `deploy-check.sh --production` fails if required variables are unset or still contain
-`<PLACEHOLDER>` values, if `PUBLIC_BASE_URL` is not exactly `https://holonet.section-zero.link`,
-or if `AUTH_SECRET` is still the development placeholder. RAM user credentials are checked in
-the deployer's environment (Serverless Devs access profile), not in the repository.
+`<PLACEHOLDER>` values, if `PUBLIC_BASE_URL` is missing, not a syntactically valid URL, or not
+`https://` (it is configurable — any domain works), or if `AUTH_SECRET` is still the development
+placeholder. RAM user credentials are checked in the deployer's environment (Serverless Devs
+access profile), not in the repository.
 
 ## Build
 

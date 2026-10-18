@@ -48,6 +48,7 @@ if [[ "${1:-}" == "--production" ]]; then
     VSWITCH_IDS
     SECURITY_GROUP_ID
     DATABASE_URL
+    PUBLIC_DOMAIN
   )
 
   failed=0
@@ -59,9 +60,15 @@ if [[ "${1:-}" == "--production" ]]; then
     fi
   done
 
-  # The fixed hostname must never change (docs/deployment.md).
-  if [[ "${PUBLIC_BASE_URL:-https://holonet.section-zero.link}" != "https://holonet.section-zero.link" ]]; then
-    echo "ERROR: PUBLIC_BASE_URL must be exactly https://holonet.section-zero.link."
+  # The platform hostname is configurable but must always be a valid https://
+  # URL (docs/deployment.md, "Changing the platform hostname").
+  public_base_url="${PUBLIC_BASE_URL:-}"
+  if [[ -z "$public_base_url" || "$public_base_url" == *"<"* ]]; then
+    echo "ERROR: PUBLIC_BASE_URL must be set (e.g. https://holonet.section-zero.link)."
+    failed=1
+  elif ! node -e 'const u = new URL(process.argv[1]); if (u.protocol !== "https:" || !u.hostname) process.exit(1)' \
+      "$public_base_url"; then
+    echo "ERROR: PUBLIC_BASE_URL must be a valid https:// URL (got: ${public_base_url:-unset})."
     failed=1
   fi
 

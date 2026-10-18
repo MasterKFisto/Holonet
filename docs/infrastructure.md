@@ -19,7 +19,8 @@
 ### Function Compute
 
 - **`holonet-app`** — hosts the Holonet API and serves the dashboard HTML entrypoint. HTTP
-  trigger bound to the custom domain https://holonet.section-zero.link. Node.js 20 runtime,
+  trigger bound to the custom domain `PUBLIC_DOMAIN` (platform hostname — configurable,
+  default example: holonet.section-zero.link). Node.js 20 runtime,
   VPC-attached, runs under the Holonet RAM role.
 - **`holonet-builder`** — a separate function for static site builds. Invoked by `holonet-app` on
   publish; higher memory and timeout; same VPC attachment and RAM role.
@@ -95,7 +96,8 @@ functions.
 
 ### Custom domain
 
-- https://holonet.section-zero.link is bound to the `holonet-app` HTTP trigger (dashboard + API).
+- The platform hostname (`PUBLIC_DOMAIN` / `PUBLIC_BASE_URL` — configurable, default example:
+  https://holonet.section-zero.link) is bound to the `holonet-app` HTTP trigger (dashboard + API).
 - Published sites are served from the OSS public bucket on an OSS-backed domain; later phases can
   add a CDN in front of it (future upgrade path).
 
