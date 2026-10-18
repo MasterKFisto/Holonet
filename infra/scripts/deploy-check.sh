@@ -22,8 +22,8 @@ echo "OK: node $(node -v), pnpm $(pnpm -v)"
 if [[ "${1:-}" == "--production" ]]; then
   if [[ -f "$ROOT_DIR/.env" ]]; then
     # Import KEY=VALUE lines safely (NOT shell-sourced: values may contain
-    # '<PLACEHOLDER>' tokens that are not shell-safe). Variables already in
-    # the environment win.
+    # angle-bracket template tokens that are not shell-safe). Variables already
+    # in the environment win.
     while IFS= read -r line; do
       case "$line" in
         '' | '#'*) continue ;;

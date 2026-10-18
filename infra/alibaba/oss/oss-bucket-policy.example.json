@@ -1,5 +1,5 @@
 {
-  "$comment": "PLACEHOLDER OSS policy for the public bucket (OSS_PUBLIC_BUCKET): public read only, no listing. Replace placeholders with real values from the environment and review against the latest OSS policy documentation before applying.",
+  "$comment": "EXAMPLE OSS policy for the public bucket (OSS_PUBLIC_BUCKET): public read only, no listing. Replace the angle-bracket values with real values from the environment and review against the latest OSS policy documentation before applying.",
   "Statement": [
     {
       "Effect": "Allow",

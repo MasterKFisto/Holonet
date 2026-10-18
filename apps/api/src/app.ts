@@ -1,10 +1,15 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { createDatabase, type HolonetDatabase } from '@holonet/db';
-import { createStorageProviderFromEnv, type StorageProvider } from '@holonet/storage';
+import {
+  createStorageProviderFromEnv,
+  setOssCredentialsProvider,
+  type StorageProvider,
+} from '@holonet/storage';
 import { createBuilderInvoker, type BuilderInvoker } from './lib/builder-invoker.js';
 import { corsOriginList, loadEnv, type Env } from './config/env.js';
 import { errorBody } from './lib/errors.js';
+import { getFcContext } from './lib/fc-context.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { csrfProtection } from './middleware/csrf.js';
 import { requestLogger } from './middleware/logging.js';
@@ -31,6 +36,19 @@ export function createApp(
   privateStorage?: StorageProvider,
 ): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
+  // On Function Compute, OSS credentials come from the execution RAM role's
+  // STS credentials captured from the invocation context (no static keys).
+  // Locally the provider returns undefined and env credentials are used.
+  setOssCredentialsProvider(() => {
+    const credentials = getFcContext()?.credentials;
+    return credentials?.accessKeyId && credentials.accessKeySecret
+      ? {
+          accessKeyId: credentials.accessKeyId,
+          accessKeySecret: credentials.accessKeySecret,
+          securityToken: credentials.securityToken,
+        }
+      : undefined;
+  });
   const database = db ?? (env.DATABASE_URL ? createDatabase(env.DATABASE_URL) : undefined);
   const storageProvider = storage ?? createStorageProviderFromEnv('public');
   // Raw imported website content is private by design — never in the

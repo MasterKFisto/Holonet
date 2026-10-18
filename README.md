@@ -144,11 +144,14 @@ ADMIN_INITIAL_PASSWORD=change-me-admin pnpm db:seed
   production it points at the private VPC address of the PostgreSQL Docker host.
 - `db:generate` works offline; `db:migrate` and `db:seed` need a running database.
 
-Deployment readiness:
+Deployment readiness and Function Compute pipeline:
 
 ```bash
 pnpm deploy:check                                 # local tooling check
 bash infra/scripts/deploy-check.sh --production   # verify production env vars
+pnpm dashboard:upload                             # build + upload dashboard assets to OSS
+pnpm deploy:package                               # esbuild-bundle holonet-app + holonet-builder zips
+pnpm deploy:fc                                    # check → upload → package → s deploy (Serverless Devs)
 ```
 
 ## Local Database Setup
@@ -407,7 +410,9 @@ Full procedure: [docs/deployment.md](docs/deployment.md). Architecture and reque
 [docs/architecture.md](docs/architecture.md). Configuration templates: `infra/alibaba/`.
 **Account/infrastructure setup (RAM users/roles, OSS, VPC, PostgreSQL, domain):
 [docs/alibaba-cloud-setup.md](docs/alibaba-cloud-setup.md).**
-Placeholder assumptions are marked `PLACEHOLDER` in the relevant files.
+Placeholder assumptions are marked `PLACEHOLDER` in the relevant files; the canonical
+inventory with reasons and verification steps is
+[docs/assumptions.md](docs/assumptions.md).
 
 ## 7. Platform hostname
 

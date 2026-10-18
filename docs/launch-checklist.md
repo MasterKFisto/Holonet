@@ -3,6 +3,25 @@
 Run through this list before every launch (initial and each major update).
 Tracked against the hardening status table in [docs/security.md](security.md).
 
+## Resolved placeholders (verified done)
+
+- [x] FC3 HTTP trigger signature — full adapter in `apps/api/src/function.ts`
+      (Buffer/string/object event → Web `Request` → Hono → FC3 response; structured
+      400/500 fallbacks; unit-tested)
+- [x] Builder invocation — `BUILDER_INVOKER=fc` invokes `holonet-builder`
+      asynchronously via the fc3 SDK with execution-role STS credentials; invocation
+      failure fails the deployment + job with audit/security events (never stuck
+      `queued`)
+- [x] Builder event parsing — `apps/builder/src/handler.ts` accepts the FC3
+      event-function payload as Buffer / JSON string / object
+- [x] OSS credentials on FC — execution-role STS via `setOssCredentialsProvider`
+      (packages/storage), TTL-refreshed clients, no static AccessKeys on FC
+- [x] Dashboard manifest packaging — baked into `holonet-app.zip` in production
+      (packaging fails without it); OSS `app/dashboard-assets.json` fallback with a
+      5-minute cache; clean 503 page when both sources fail
+- [x] Platform hostname — configurable via `PUBLIC_BASE_URL` / `PUBLIC_DOMAIN`
+      (README §7, docs/deployment.md "Changing the platform hostname")
+
 ## Local checks
 
 ```bash
@@ -47,6 +66,16 @@ pnpm test                         # full suite green (incl. integration tests wi
       certificate bound, `/*` routed to `holonet-app`
 - [ ] HTTPS certificate valid (browser padlock + `openssl s_client` expiry check)
 - [ ] `https://holonet.section-zero.link/health` returns `{"ok":true,"service":"holonet"}`
+
+### Function Compute verification (first deploy)
+
+- [ ] Send a test event from the FC console **Test Function** page to `holonet-app`
+      and compare the event JSON with the adapter in `apps/api/src/function.ts`
+      (empty event → structured 400; mock `GET /api/health` → 200) — see
+      [docs/assumptions.md](assumptions.md)
+- [ ] Publish a test site with `BUILDER_INVOKER=fc` and confirm `holonet-builder`
+      receives the event and writes `sites/{siteId}/releases/{deploymentId}/` to the
+      OSS public bucket (deployment/job transition out of `queued`)
 
 ### Runtime behavior
 

@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import type OSS from 'ali-oss';
-import { createAlibabaOssStorageProvider, type AlibabaOssStorageProvider } from './oss.js';
+import {
+  createAlibabaOssStorageProvider,
+  type AlibabaOssStorageProvider,
+  type OssCredentials,
+} from './oss.js';
 
 /**
  * Mocked OSS client — no network access. Tests the provider's request
@@ -93,5 +97,91 @@ describe('AlibabaOssStorageProvider (mocked client)', () => {
       /relative|traversal/,
     );
     expect(client.put).not.toHaveBeenCalled();
+  });
+});
+
+describe('AlibabaOssStorageProvider credentials', () => {
+  it('builds the client from the credentials provider (FC STS) lazily', async () => {
+    const seen: Array<OssCredentials | undefined> = [];
+    const clientFactory = vi.fn((credentials: OssCredentials | undefined) => {
+      seen.push(credentials);
+      return mockClient();
+    });
+    const storage = createAlibabaOssStorageProvider({
+      ...config,
+      credentialsProvider: () => ({
+        accessKeyId: 'STS.key-id',
+        accessKeySecret: 'STS.secret',
+        securityToken: 'STS.token',
+      }),
+      clientFactory,
+    });
+
+    await storage.putObject('media/public/ws-1/a.png', Buffer.from('x'));
+    expect(clientFactory).toHaveBeenCalledTimes(1);
+    expect(seen[0]).toEqual({
+      accessKeyId: 'STS.key-id',
+      accessKeySecret: 'STS.secret',
+      securityToken: 'STS.token',
+    });
+  });
+
+  it('reuses the dynamic client within the refresh window and rebuilds after it', async () => {
+    const clientFactory = vi.fn((_credentials: OssCredentials | undefined) => mockClient());
+    const cached = createAlibabaOssStorageProvider({
+      ...config,
+      credentialsProvider: () => ({
+        accessKeyId: 'STS.key-id',
+        accessKeySecret: 'STS.secret',
+      }),
+      clientFactory,
+    });
+    await cached.putObject('media/public/ws-1/a.png', Buffer.from('x'));
+    await cached.putObject('media/public/ws-1/b.png', Buffer.from('y'));
+    expect(clientFactory).toHaveBeenCalledTimes(1);
+
+    const refreshing = createAlibabaOssStorageProvider({
+      ...config,
+      credentialsProvider: () => ({
+        accessKeyId: 'STS.key-id',
+        accessKeySecret: 'STS.secret',
+      }),
+      clientFactory,
+      credentialsRefreshMs: 0,
+    });
+    await refreshing.putObject('media/public/ws-1/a.png', Buffer.from('x'));
+    await refreshing.putObject('media/public/ws-1/b.png', Buffer.from('y'));
+    expect(clientFactory).toHaveBeenCalledTimes(3);
+  });
+
+  it('builds static-key clients once, eagerly, without the credentials provider', async () => {
+    const credentialsProvider = vi.fn(() => undefined);
+    const clientFactory = vi.fn((_credentials: OssCredentials | undefined) => mockClient());
+    const storage = createAlibabaOssStorageProvider({
+      ...config,
+      accessKeyId: 'local-key',
+      accessKeySecret: 'local-secret',
+      credentialsProvider,
+      clientFactory,
+    });
+    expect(clientFactory).toHaveBeenCalledTimes(1);
+    await storage.putObject('media/public/ws-1/a.png', Buffer.from('x'));
+    await storage.putObject('media/public/ws-1/b.png', Buffer.from('y'));
+    expect(clientFactory).toHaveBeenCalledTimes(1);
+    expect(credentialsProvider).not.toHaveBeenCalled();
+  });
+
+  it('passes undefined credentials to the factory when the provider has none', async () => {
+    const seen: Array<OssCredentials | undefined> = [];
+    const storage = createAlibabaOssStorageProvider({
+      ...config,
+      credentialsProvider: () => undefined,
+      clientFactory: (credentials) => {
+        seen.push(credentials);
+        return mockClient();
+      },
+    });
+    await storage.putObject('media/public/ws-1/a.png', Buffer.from('x'));
+    expect(seen).toEqual([undefined]);
   });
 });

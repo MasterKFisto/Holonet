@@ -10,7 +10,8 @@ const pools = new WeakMap<HolonetDatabase, Pool>();
 
 /**
  * Loads KEY=VALUE lines from a .env file. Values are not shell-sourced, so
- * '<PLACEHOLDER>' tokens are safe. Existing environment variables win.
+ * angle-bracket template values like '<ALIBABA_CLOUD_REGION>' are safe.
+ * Existing environment variables win.
  */
 export function loadEnvFile(filePath: string): void {
   if (!existsSync(filePath)) {

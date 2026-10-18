@@ -13,8 +13,8 @@ COMPOSE_DIR="$ROOT_DIR/infra/docker"
 
 # Import the variables the compose file needs from the repository-root .env
 # (if present). The file is NOT shell-sourced: values may contain
-# '<PLACEHOLDER>' tokens that are not shell-safe. Variables already in the
-# environment win.
+# angle-bracket template tokens that are not shell-safe. Variables already in
+# the environment win.
 if [[ -f "$ROOT_DIR/.env" ]]; then
   while IFS= read -r line; do
     case "$line" in

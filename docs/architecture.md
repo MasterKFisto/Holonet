@@ -271,6 +271,8 @@ AIProvider.analyzeWebsiteImport(input: ImportAnalysisInput): Promise<ImportAnaly
 
 ## Placeholders and assumptions
 
-Open questions (marked `PLACEHOLDER` in the relevant files) are tracked in
-docs/infrastructure.md and docs/assumptions.md: Docker host specifics,
-MinIO add-on packaging, and the OSS SDK choice.
+Remaining intentional placeholders (marked `PLACEHOLDER` in the relevant files) are
+inventoried with reasons in docs/assumptions.md: the MinIO add-on packaging, Docker
+host specifics, the Ollama AI provider, Redis-backed rate limiting, and the password
+reset email transport. External-system assumptions (FC3 event shapes, STS credential
+flow) each carry a verification step there.

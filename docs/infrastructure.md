@@ -76,9 +76,11 @@ is in packages/storage/src/provider.ts).
 `.holonet-storage`, for development) or `STORAGE_PROVIDER=oss` (Alibaba OSS via ali-oss).
 OSS configuration comes from the environment only: `OSS_REGION` (fallback
 `ALIBABA_CLOUD_REGION`), `OSS_ENDPOINT`, `OSS_PUBLIC_BUCKET`/`OSS_PRIVATE_BUCKET`,
-`OSS_ACCESS_KEY_ID`/`OSS_ACCESS_KEY_SECRET` (local testing) and `OSS_ROLE_ARN` (optional —
-STS via the RAM role on Function Compute, PLACEHOLDER). Uploads set Content-Type and
-Cache-Control (immutable assets, `no-cache` JSON).
+`OSS_ACCESS_KEY_ID`/`OSS_ACCESS_KEY_SECRET` (local testing) and `OSS_ROLE_ARN`
+(informational). On Function Compute (no static keys) the client uses the execution
+RAM role's STS credentials captured from the invocation context
+(`setOssCredentialsProvider` in `packages/storage`), refreshed on a TTL. Uploads set
+Content-Type and Cache-Control (immutable assets, `no-cache` JSON).
 
 ### RAM
 
@@ -165,6 +167,6 @@ All values are placeholders; real values come from environment variables.
   check → dashboard upload → packaging → `s deploy` (docs/deployment.md).
 - **PLACEHOLDER — Docker host specifics.** The ECS instance size/image for the Docker host is
   decided during the deployment phase.
-- **PLACEHOLDER — OSS SDK.** The OSS backend in `packages/storage` will use the official Alibaba
-  Cloud OSS Node.js SDK (or signed HTTP calls); the choice is documented when implemented.
+- **OSS SDK — resolved.** `packages/storage` uses the official `ali-oss` SDK, with STS
+  credentials from the FC execution role on Function Compute.
 - **PLACEHOLDER — MinIO add-on.** Compose packaging for the optional local OSS simulation.

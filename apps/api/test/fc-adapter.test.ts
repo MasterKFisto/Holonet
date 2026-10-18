@@ -140,4 +140,26 @@ describe('holonet FC3 HTTP trigger adapter', () => {
     expect(stored?.accountId).toBe('1234567890');
     expect(stored?.credentials?.securityToken).toBe('STS.token');
   });
+
+  it('exposes FC context credentials to the OSS credentials provider via createApp', async () => {
+    storeFcContext({
+      credentials: {
+        accessKeyId: 'STS.ak',
+        accessKeySecret: 'STS.sk',
+        securityToken: 'STS.token',
+      },
+    });
+    // createApp registers the FC-context-backed OSS credentials provider.
+    const { createApp } = await import('../src/app.js');
+    const { getOssCredentialsProvider } = await import('@holonet/storage');
+    createApp();
+    expect(getOssCredentialsProvider()?.()).toEqual({
+      accessKeyId: 'STS.ak',
+      accessKeySecret: 'STS.sk',
+      securityToken: 'STS.token',
+    });
+    // Without a stored context the provider yields undefined (env fallback).
+    storeFcContext(undefined);
+    expect(getOssCredentialsProvider()?.()).toBeUndefined();
+  });
 });

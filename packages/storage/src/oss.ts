@@ -2,20 +2,43 @@ import OSS from 'ali-oss';
 import { assertSafePrefix, assertValidKey } from './keys.js';
 import type { PutObjectOptions, StorageObject, StorageProvider } from './provider.js';
 
+/** Temporary (STS) credentials — e.g. the Function Compute execution RAM role. */
+export interface OssCredentials {
+  accessKeyId: string;
+  accessKeySecret: string;
+  securityToken?: string;
+}
+
 export interface AlibabaOssConfig {
   region: string;
   /** Custom endpoint (OSS_ENDPOINT); defaults to the public regional endpoint. */
   endpoint?: string;
   bucket: string;
-  /** Present for local testing; on Function Compute credentials come from the
-   * RAM role via STS — PLACEHOLDER, wired in the deployment phase. */
+  /**
+   * Static credentials for local testing only. On Function Compute these are
+   * absent and credentials come from `credentialsProvider` instead.
+   */
   accessKeyId?: string;
   accessKeySecret?: string;
-  /** RAM role ARN used for STS credentials on Function Compute (optional). */
+  /**
+   * Dynamic credentials source used when no static keys are configured. On
+   * Function Compute this returns the RAM-role STS credentials captured from
+   * the invocation context (registered via `setOssCredentialsProvider`).
+   * The resolved client is cached for `credentialsRefreshMs`.
+   */
+  credentialsProvider?: () => OssCredentials | undefined;
+  /** RAM role ARN (informational — the execution role is attached to the function). */
   roleArn?: string;
   /** Base URL used by getPublicUrl (defaults to the bucket's public endpoint). */
   publicBaseUrl?: string;
+  /** Test hook: custom client factory receiving the resolved credentials. */
+  clientFactory?: (credentials: OssCredentials | undefined) => OSS;
+  /** Test hook: how long a dynamically-built client is reused (default 4 min). */
+  credentialsRefreshMs?: number;
 }
+
+/** FC STS credentials rotate; rebuilding the client every few minutes is cheap. */
+const DEFAULT_CREDENTIALS_REFRESH_MS = 4 * 60 * 1000;
 
 function isNoSuchKey(error: unknown): boolean {
   return (
@@ -23,6 +46,24 @@ function isNoSuchKey(error: unknown): boolean {
     error !== null &&
     (error as { code?: unknown }).code === 'NoSuchKey'
   );
+}
+
+function buildClient(config: AlibabaOssConfig, credentials: OssCredentials | undefined): OSS {
+  const factory =
+    config.clientFactory ??
+    ((creds: OssCredentials | undefined) =>
+      new OSS({
+        region: config.region,
+        bucket: config.bucket,
+        endpoint: config.endpoint,
+        secure: true,
+        // Empty strings when absent: the SDK then relies on environment
+        // credentials (local fallback only).
+        accessKeyId: creds?.accessKeyId ?? '',
+        accessKeySecret: creds?.accessKeySecret ?? '',
+        ...(creds?.securityToken ? { stsToken: creds.securityToken } : {}),
+      }));
+  return factory(credentials);
 }
 
 /**
@@ -34,34 +75,51 @@ export class AlibabaOssStorageProvider implements StorageProvider {
   readonly kind = 'oss' as const;
   readonly bucket: string;
 
-  private readonly client: OSS;
+  private readonly config: AlibabaOssConfig;
+  private readonly injectedClient?: OSS;
+  private readonly staticClient?: OSS;
+  private dynamicClient?: OSS;
+  private dynamicClientBuiltAt = 0;
   private readonly publicBaseUrl: string;
 
   /** `client` is injectable for tests; production uses the real SDK client. */
   constructor(config: AlibabaOssConfig, client?: OSS) {
+    this.config = config;
     this.bucket = config.bucket;
     this.publicBaseUrl = (
       config.publicBaseUrl ?? `https://${config.bucket}.oss-${config.region}.aliyuncs.com`
     ).replace(/\/+$/, '');
-    // roleArn is carried in config for the FC STS wiring (PLACEHOLDER).
-    void config.roleArn;
-    this.client =
-      client ??
-      new OSS({
-        region: config.region,
-        bucket: config.bucket,
-        endpoint: config.endpoint,
-        secure: true,
-        // Empty strings when absent: the SDK then relies on environment
-        // credentials or the RAM-role STS metadata.
-        accessKeyId: config.accessKeyId ?? '',
-        accessKeySecret: config.accessKeySecret ?? '',
+    this.injectedClient = client;
+    // Static credentials (local testing): build once, eagerly. Without static
+    // keys the client is built lazily from `credentialsProvider` (FC STS) and
+    // refreshed on a TTL so rotated credentials are picked up.
+    if (!client && config.accessKeyId && config.accessKeySecret) {
+      this.staticClient = buildClient(config, {
+        accessKeyId: config.accessKeyId,
+        accessKeySecret: config.accessKeySecret,
       });
+    }
+  }
+
+  private resolveClient(): OSS {
+    if (this.injectedClient) {
+      return this.injectedClient;
+    }
+    if (this.staticClient) {
+      return this.staticClient;
+    }
+    const refreshMs = this.config.credentialsRefreshMs ?? DEFAULT_CREDENTIALS_REFRESH_MS;
+    const now = Date.now();
+    if (!this.dynamicClient || now - this.dynamicClientBuiltAt >= refreshMs) {
+      this.dynamicClient = buildClient(this.config, this.config.credentialsProvider?.());
+      this.dynamicClientBuiltAt = now;
+    }
+    return this.dynamicClient;
   }
 
   async putObject(key: string, body: Buffer, options?: PutObjectOptions): Promise<void> {
     assertValidKey(key);
-    await this.client.put(key, body, {
+    await this.resolveClient().put(key, body, {
       mime: options?.contentType,
       headers: options?.cacheControl ? { 'Cache-Control': options.cacheControl } : undefined,
     });
@@ -70,7 +128,7 @@ export class AlibabaOssStorageProvider implements StorageProvider {
   async getObject(key: string): Promise<StorageObject | null> {
     assertValidKey(key);
     try {
-      const result = await this.client.get(key);
+      const result = await this.resolveClient().get(key);
       const body = Buffer.isBuffer(result.content)
         ? result.content
         : Buffer.from(String(result.content ?? ''));
@@ -87,12 +145,12 @@ export class AlibabaOssStorageProvider implements StorageProvider {
 
   async deleteObject(key: string): Promise<void> {
     assertValidKey(key);
-    await this.client.delete(key);
+    await this.resolveClient().delete(key);
   }
 
   async listObjects(prefix: string): Promise<string[]> {
     assertSafePrefix(prefix);
-    const result = await this.client.list({ prefix, 'max-keys': 1000 }, {});
+    const result = await this.resolveClient().list({ prefix, 'max-keys': 1000 }, {});
     return (result.objects ?? []).map((object) => object.name);
   }
 
@@ -103,7 +161,7 @@ export class AlibabaOssStorageProvider implements StorageProvider {
 
   async getSignedUrl(key: string, expiresInSeconds: number): Promise<string> {
     assertValidKey(key);
-    return this.client.signatureUrl(key, { expires: expiresInSeconds });
+    return this.resolveClient().signatureUrl(key, { expires: expiresInSeconds });
   }
 }
 

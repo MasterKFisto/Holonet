@@ -1,5 +1,5 @@
 {
-  "$comment": "PLACEHOLDER Function Compute configuration. Real values come from environment variables. Deployment tooling (Serverless Devs 's' CLI or the Alibaba Cloud console) is finalized in the deployment phase — see docs/deployment.md.",
+  "$comment": "EXAMPLE Function Compute layout for reference. The canonical deployment configuration is infra/alibaba/s.yaml (Serverless Devs) with values from infra/alibaba/.env.deploy — real values come from environment variables.",
   "service": {
     "name": "holonet",
     "region": "<ALIBABA_CLOUD_REGION>",

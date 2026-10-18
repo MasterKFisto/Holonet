@@ -1,5 +1,5 @@
 {
-  "$comment": "PLACEHOLDER least-privilege RAM policy for the Function Compute execution role (FC_ROLE_ARN). Grants OSS access to the two Holonet buckets only. Replace placeholders with real values from the environment and review against the latest RAM policy documentation before applying.",
+  "$comment": "EXAMPLE least-privilege RAM policy for the Function Compute execution role (FC_ROLE_ARN). Grants OSS access to the two Holonet buckets only. Replace the angle-bracket values with real values from the environment and review against the latest RAM policy documentation before applying.",
   "Version": "1",
   "Statement": [
     {
