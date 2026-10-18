@@ -25,8 +25,12 @@ export const envSchema = z.object({
   RATE_LIMIT_MAX_REQUESTS: z.coerce.number().int().positive().default(300),
   /** Public base URL of the OSS public bucket (dashboard asset origin). */
   OSS_PUBLIC_BASE_URL: z.string().url().optional(),
-  /** Path to the uploaded dashboard asset manifest (GET / shell). */
-  DASHBOARD_ASSET_MANIFEST_PATH: z.string().min(1).optional(),
+  /**
+   * Path to the dashboard asset manifest (baked into the FC artifact as
+   * ./dashboard-assets.json; the OSS bucket key app/dashboard-assets.json is
+   * the runtime fallback).
+   */
+  DASHBOARD_ASSET_MANIFEST_PATH: z.string().min(1).default('./dashboard-assets.json'),
   /** Builder invocation mode: 'local' (in-process) or 'fc' (Function Compute). */
   BUILDER_INVOKER: z.enum(['local', 'fc']).default('local'),
   /** Name of the builder Function Compute function (BUILDER_INVOKER=fc). */

@@ -92,15 +92,29 @@ Required environment (deployment RAM user; never committed):
 - `OSS_REGION` (or `ALIBABA_CLOUD_REGION`), `OSS_PUBLIC_BUCKET`, `OSS_PUBLIC_BASE_URL`
 - `OSS_ACCESS_KEY_ID` / `OSS_ACCESS_KEY_SECRET` (or RAM-role credentials in CI)
 
-At runtime the API reads the manifest via `DASHBOARD_ASSET_MANIFEST_PATH` (default:
-`infra/alibaba/dashboard-assets.json`) and renders the shell with:
+The upload script also publishes the manifest itself to **`app/dashboard-assets.json`** in the
+public bucket so the runtime has a storage fallback.
+
+At runtime the API shell (`GET /`) resolves the manifest through two delivery paths:
+
+1. **Primary — baked file.** `infra/scripts/package-api.sh` copies
+   `infra/alibaba/dashboard-assets.json` into the `holonet-app.zip` archive root; the runtime
+   reads it from `DASHBOARD_ASSET_MANIFEST_PATH` (default `./dashboard-assets.json`). Production
+   packaging is strict: `package-api.sh --production` (used by `deploy.sh`) **fails** when the
+   manifest is missing, so artifacts are always self-contained.
+2. **Fallback — OSS public bucket.** If the file is absent, the shell fetches the manifest from
+   the public bucket key `app/dashboard-assets.json` via the `StorageProvider` and caches it in
+   memory for **5 minutes** (so a missing baked copy never requires a re-upload per request).
+
+When both sources fail, `GET /` returns a **503 HTML maintenance page**
+("Holonet is being deployed. Dashboard assets are not yet available.") — never a stack trace.
+Local development additionally falls back to the repository-relative
+`infra/alibaba/dashboard-assets.json` path before the OSS lookup.
+
+The shell renders:
 
 - `PUBLIC_BASE_URL` (`https://holonet.section-zero.link`) as `<base href>`.
 - `OSS_PUBLIC_BASE_URL` + `/app/…` for every entry CSS/JS URL.
-
-> **PLACEHOLDER — FC manifest packaging.** On Function Compute the manifest should be baked into
-> the function artifact (or fetched from OSS at cold start) since the function image has no
-> repository checkout; the default local path is for development.
 
 ## Publishing flow
 
@@ -112,9 +126,8 @@ Publishing a site runs the build pipeline end to end:
 2. **Local development** (`BUILDER_INVOKER=local`, the default): the API runs the build
    synchronously in-process via `LocalBuilderInvoker`.
 3. **Production** (`BUILDER_INVOKER=fc`): `FcBuilderInvoker` invokes the `holonet-builder`
-   Function Compute event function with the `{ siteId, deploymentId }` payload.
-   PLACEHOLDER — the FC SDK invocation is wired in the deployment phase; the builder's FC
-   entrypoint is `apps/builder/src/handler.ts`.
+   Function Compute event function asynchronously with the `{ siteId, deploymentId }` payload
+   (fc3 SDK, STS credentials from the FC execution role — see "Function Compute deployment").
 4. The builder loads the site, pages, and blocks from PostgreSQL, validates the template
    manifest (untrusted data, rule 17), generates the static site, and uploads it to
    `sites/{siteId}/releases/{deploymentId}/…` in the OSS public bucket (HTML `no-cache`,

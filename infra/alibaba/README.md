@@ -92,9 +92,11 @@ bash infra/scripts/package-builder.sh   # → infra/alibaba/dist/holonet-builder
 Each script bundles the FC entrypoint (`apps/api/src/function.ts` /
 `apps/builder/src/handler.ts`) **together with all workspace packages** into a
 self-contained CommonJS `index.js` (esbuild), adds a CommonJS `package.json`,
-bakes `dashboard-assets.json` into the app zip when present, and zips the
-result with the entrypoint at the archive root. No Alibaba credentials are
-needed for packaging.
+bakes `dashboard-assets.json` into the app zip (with `--production` a missing
+manifest is a hard error — the runtime can otherwise fall back to the OSS
+bucket key `app/dashboard-assets.json`), and zips the result with the
+entrypoint at the archive root. No Alibaba credentials are needed for
+packaging.
 
 Smoke-test the packaged app handler locally:
 

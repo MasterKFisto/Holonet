@@ -141,6 +141,18 @@ async function main() {
   };
   writeFileSync(MANIFEST_PATH, `${JSON.stringify(manifest, null, 2)}\n`);
 
+  // Publish the manifest itself to app/dashboard-assets.json so the runtime
+  // OSS fallback works even when the function artifact has no baked copy.
+  await client.put(
+    `${PREFIX}/dashboard-assets.json`,
+    Buffer.from(`${JSON.stringify(manifest, null, 2)}\n`),
+    {
+      mime: 'application/json',
+      headers: { 'Cache-Control': CACHE_HTML },
+    },
+  );
+  console.log(`[dashboard-assets] uploaded ${PREFIX}/dashboard-assets.json (manifest fallback)`);
+
   console.log(`[dashboard-assets] uploaded ${uploaded.length} files to oss://${bucket}/${PREFIX}/`);
   console.log(`[dashboard-assets] manifest written to infra/alibaba/dashboard-assets.json`);
 }

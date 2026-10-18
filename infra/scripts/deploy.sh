@@ -53,8 +53,9 @@ if [[ "${1:-}" != "--skip-dashboard" ]]; then
   node "$ROOT_DIR/infra/scripts/upload-dashboard-assets.mjs"
 fi
 
-# 3. Function artifacts.
-bash "$ROOT_DIR/infra/scripts/package-api.sh"
+# 3. Function artifacts (production-strict: the dashboard manifest must be
+#    baked into the app zip).
+bash "$ROOT_DIR/infra/scripts/package-api.sh" --production
 bash "$ROOT_DIR/infra/scripts/package-builder.sh"
 
 # 4. Serverless Devs deploy (s.yaml reads the exported env vars).

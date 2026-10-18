@@ -40,13 +40,27 @@ pnpm --dir "$ROOT_DIR" exec esbuild apps/api/src/function.ts \
 printf '{"name":"holonet-app","main":"index.js"}\n' > "$OUT_DIR/package.json"
 
 # Bake the dashboard asset manifest when it exists (upload-dashboard-assets.mjs
-# writes it). Without it the HTML shell falls back to a minimal page.
+# writes it). In production mode (--production, used by deploy.sh) a missing
+# manifest is a hard error — the runtime can still fall back to the OSS copy,
+# but production packages must be self-contained.
+PRODUCTION_MODE=false
+if [[ "${1:-}" == "--production" ]]; then
+  PRODUCTION_MODE=true
+fi
+
 MANIFEST="$ROOT_DIR/infra/alibaba/dashboard-assets.json"
 if [[ -f "$MANIFEST" ]]; then
   cp "$MANIFEST" "$OUT_DIR/dashboard-assets.json"
   echo "OK: dashboard-assets.json baked in"
+elif [[ "$PRODUCTION_MODE" == "true" ]]; then
+  echo "ERROR: infra/alibaba/dashboard-assets.json is missing." >&2
+  echo "       Production packages must bake the dashboard asset manifest." >&2
+  echo "       Run: node infra/scripts/upload-dashboard-assets.mjs" >&2
+  echo "       (or: pnpm dashboard:upload), then package again." >&2
+  exit 1
 else
-  echo "NOTE: no dashboard-assets.json — run upload-dashboard-assets.mjs before deploying the dashboard"
+  echo "NOTE: no dashboard-assets.json — the runtime will fall back to the OSS" 
+  echo "      bucket key app/dashboard-assets.json (upload-dashboard-assets.mjs)."
 fi
 
 # Self-contained zip with the entrypoint at the archive root.
